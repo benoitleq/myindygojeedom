@@ -1,0 +1,16 @@
+{
+    "id": "myindygojeedom",
+    "name": "MyIndygo",
+    "description": "Pilotage de piscine connectée Indygo Pool Command. Température de l'eau, filtration et équipements auxiliaires via l'API officielle MyIndygo (OAuth2).",
+    "licence": "MIT",
+    "author": "benoitleq",
+    "require": "4.2",
+    "category": "wellness",
+    "changelog": "https://raw.githubusercontent.com/benoitleq/myindygojeedom/main/docs/fr_FR/changelog.md",
+    "documentation": "https://github.com/benoitleq/myindygojeedom",
+    "language": "",
+    "compatibility": [],
+    "hasDependency": false,
+    "hasOwnDeamon": false,
+    "maxDependancyInstallTime": 10
+}
