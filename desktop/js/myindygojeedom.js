@@ -125,3 +125,10 @@ var myindygojeedom = (function () {
         }
     };
 })();
+
+// Appel explicite au cas où Jeedom ne déclenche pas init() automatiquement
+$(document).ready(function () {
+    if (typeof myindygojeedom !== 'undefined' && typeof myindygojeedom.init === 'function') {
+        myindygojeedom.init();
+    }
+});
