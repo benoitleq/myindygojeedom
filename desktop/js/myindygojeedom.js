@@ -1,8 +1,9 @@
-'use strict';
+"use strict";
 
 /* Plugin MyIndygo — JavaScript côté desktop Jeedom */
 
-let myindygojeedom = (function () {
+// var (pas let) : nécessaire pour que Jeedom puisse appeler window.myindygojeedom.init()
+var myindygojeedom = (function () {
     const _eqType = 'myindygojeedom';
 
     // ─── Affiche la liste des équipements sous forme de tuiles ────────
