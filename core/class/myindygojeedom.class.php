@@ -55,6 +55,16 @@ class myindygojeedom extends eqLogic {
     public function pull() {
         $this->ensureToken();
 
+        // 0. Nettoyage des commandes avec des logicalId obsolètes (anciennes versions du plugin)
+        foreach ($this->getCmd() as $cmd) {
+            $logId = $cmd->getLogicalId();
+            if ($logId !== 'temperature' && $logId !== 'filtration_running'
+                && strpos($logId, 'prog_') !== 0) {
+                log::add('myindygojeedom', 'info', '[pull] suppression cmd obsolète logicalId=' . $logId);
+                $cmd->remove();
+            }
+        }
+
         // 1. Modules
         $modules = $this->fetchModules();
         if (empty($modules)) {
@@ -93,17 +103,16 @@ class myindygojeedom extends eqLogic {
 
         $seenProgIds = [];
         foreach ($programs as $prog) {
-            $progId = $prog['program_id'];
-            if ($progId === null || $progId === '') {
-                log::add('myindygojeedom', 'warning', '[pull] programme sans ID ignoré');
+            $progId = (string)($prog['program_id'] ?? '');
+            if ($progId === '') {
+                log::add('myindygojeedom', 'warning', '[pull] programme sans ID ignoré — module=' . $prog['module_id']);
                 continue;
             }
-            $key = $prog['module_id'] . '|' . $progId;
-            if (isset($seenProgIds[$key])) {
-                log::add('myindygojeedom', 'debug', '[pull] programme dupliqué ignoré : ' . $progId);
+            if (isset($seenProgIds[$progId])) {
+                log::add('myindygojeedom', 'debug', '[pull] programme dupliqué ignoré : progId=' . $progId);
                 continue;
             }
-            $seenProgIds[$key] = true;
+            $seenProgIds[$progId] = true;
             $this->updateProgramCmds($prog);
         }
 
@@ -236,7 +245,7 @@ class myindygojeedom extends eqLogic {
                     'module_id'       => $modId,
                     'module_name'     => $modName,
                     'program_id'      => $prog['id'] ?? null,
-                    'program_name'    => $prog['name'] ?? (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype),
+                    'program_name'    => (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype),
                     'program_type'    => $ptype,
                     'is_filtration'   => $ptype === self::PROGRAM_TYPE_FILTRATION,
                     'current_mode'    => $pc['mode'] ?? null,
