@@ -234,7 +234,7 @@ if (!isConnect('admin')) {
                 eqType_name: _eqType,
                 isEnable: $('[data-l1key="isEnable"].eqLogicAttr').val() || 1,
                 isVisible: $('[data-l1key="isVisible"].eqLogicAttr').val() || 1,
-                configuration: firstVal.configuration || {}
+                configuration: JSON.stringify(firstVal.configuration || {})
             };
             $.ajax({
                 type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
