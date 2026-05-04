@@ -152,14 +152,12 @@ if (!isConnect('admin')) {
 
     function openEqLogic(id) {
         _currentId = id;
-        $.ajax({
-            type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
-            data: {action: 'get', id: id}, dataType: 'json',
-            error: ajaxErr,
-            success: function (data) {
-                if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
-                _currentName = data.result.name || '';
-                $('.eqLogic').setValues(data.result, '.eqLogicAttr');
+        jeedom.eqLogic.byId({
+            id: id,
+            error: function (err) { _notify('Erreur', err.message || JSON.stringify(err), 'danger'); },
+            success: function (eq) {
+                _currentName = eq.name || '';
+                $('.eqLogic').setValues(eq, '.eqLogicAttr');
                 $('#input_eqName').val(_currentName);
                 modifyWithoutSave = false;
                 $('.eqLogicThumbnailDisplay').hide();
@@ -169,13 +167,10 @@ if (!isConnect('admin')) {
     }
 
     function loadList() {
-        $.ajax({
-            type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
-            data: {action: 'all', type: _eqType}, dataType: 'json',
-            error: ajaxErr,
-            success: function (data) {
-                if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
-                var eqLogics = data.result;
+        jeedom.eqLogic.byType({
+            type: _eqType,
+            error: function (err) { _notify('Erreur', err.message || JSON.stringify(err), 'danger'); },
+            success: function (eqLogics) {
                 if (!eqLogics || eqLogics.length === 0) {
                     $('#div_resumeEqLogic').html(
                         '<br/><br/><center><i class="fas fa-swimming-pool" style="font-size:3em;color:#aaa"></i><br/><br/><span style="color:#aaa">{{Aucune piscine. Cliquez sur Ajouter.}}</span></center>'
@@ -255,13 +250,12 @@ if (!isConnect('admin')) {
         $(document).off('click', '#bt_removeEq').on('click', '#bt_removeEq', function () {
             bootbox.confirm('{{Supprimer cet équipement ?}}', function (result) {
                 if (!result) return;
-                $.ajax({
-                    type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
-                    data: {action: 'remove', id: _currentId},
-                    dataType: 'json', error: ajaxErr,
-                    success: function (data) {
-                        if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                jeedom.eqLogic.remove({
+                    id: _currentId,
+                    error: function (err) { _notify('Erreur', err.message || JSON.stringify(err), 'danger'); },
+                    success: function () {
                         _currentId = null;
+                        _currentName = null;
                         $('.eqLogic').hide();
                         $('.eqLogicThumbnailDisplay').show();
                         loadList();
