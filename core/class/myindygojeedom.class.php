@@ -51,6 +51,112 @@ class myindygojeedom extends eqLogic {
         // mais l'utilisateur doit valider avec "Tester la connexion" ou "Synchroniser".
     }
 
+    // ─── Widget dashboard ────────────────────────────────────────────
+    public function toHtml($_version = 'dashboard') {
+        $replace = $this->preToHtml($_version);
+        if (!is_array($replace)) {
+            return $replace;
+        }
+
+        $cmdTemp = $this->getCmd('info', 'temperature');
+        $cmdFilt = $this->getCmd('info', 'filtration_running');
+
+        $temp = ($cmdTemp) ? $cmdTemp->execCmd() : null;
+        $filt = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
+
+        $tempDisplay = ($temp !== null && $temp !== '')
+            ? number_format(floatval($temp), 1) . ' °C'
+            : '— °C';
+        $filtLabel = ($filt === null) ? '—' : ($filt ? '● Active' : '○ Arrêtée');
+        $filtColor = ($filt === null) ? '#90a4ae' : ($filt ? '#43a047' : '#e53935');
+
+        // ── Conteneur principal ──────────────────────────────────────
+        $h  = '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
+        $h .= ' data-eqLogic_id="' . $this->getId() . '"';
+        $h .= ' style="min-width:210px;border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.08);">';
+
+        // ── En-tête ──────────────────────────────────────────────────
+        $h .= '<div style="background:linear-gradient(135deg,#1565c0,#039be5);color:#fff;';
+        $h .= 'padding:9px 12px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;">';
+        $h .= '<i class="fas fa-swimming-pool"></i>';
+        $h .= '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' . htmlspecialchars($this->getName()) . '</span>';
+        $h .= '</div>';
+
+        // ── Stats (température + filtration) ─────────────────────────
+        $h .= '<div style="display:flex;padding:12px 10px;background:#f8fafc;gap:0;">';
+
+        // Température
+        $h .= '<div style="flex:1;text-align:center;">';
+        $h .= '<div style="font-size:11px;color:#78909c;margin-bottom:3px;"><i class="fas fa-thermometer-half" style="color:#ff7043;"></i>&nbsp;Eau</div>';
+        $h .= '<div style="font-size:24px;font-weight:700;color:#1a237e;">';
+        if ($cmdTemp) {
+            $h .= '<span class="cmd" data-id="' . $cmdTemp->getId() . '">' . $tempDisplay . '</span>';
+        } else {
+            $h .= $tempDisplay;
+        }
+        $h .= '</div></div>';
+
+        // Séparateur
+        $h .= '<div style="width:1px;background:#cfd8dc;margin:2px 6px;"></div>';
+
+        // Filtration
+        $h .= '<div style="flex:1;text-align:center;">';
+        $h .= '<div style="font-size:11px;color:#78909c;margin-bottom:3px;"><i class="fas fa-water" style="color:#1e88e5;"></i>&nbsp;Filtration</div>';
+        $h .= '<div style="font-size:14px;font-weight:700;color:' . $filtColor . ';">';
+        if ($cmdFilt) {
+            $h .= '<span class="cmd" data-id="' . $cmdFilt->getId() . '">' . $filtLabel . '</span>';
+        } else {
+            $h .= $filtLabel;
+        }
+        $h .= '</div></div>';
+
+        $h .= '</div>'; // stats
+
+        // ── Programmes ───────────────────────────────────────────────
+        $progRows = '';
+        foreach ($this->getCmd() as $cmd) {
+            $logId = $cmd->getLogicalId();
+            if ($cmd->getType() !== 'info') continue;
+            if (strpos($logId, 'prog_') !== 0 || substr($logId, -5) !== '_mode') continue;
+
+            $prefix   = substr($logId, 0, strlen($logId) - 5);
+            $progName = preg_replace('/ [—\-]+ mode$/u', '', $cmd->getName());
+            $mode     = $cmd->execCmd() ?? '—';
+
+            $modeColors = ['Off' => '#ef5350', 'On' => '#43a047', 'Auto' => '#1e88e5'];
+            $modeColor  = $modeColors[$mode] ?? '#90a4ae';
+
+            $progRows .= '<div style="display:flex;align-items:center;padding:7px 12px;border-top:1px solid #eceff1;gap:5px;">';
+            $progRows .= '<div style="flex:1;font-size:12px;color:#37474f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' . htmlspecialchars($progName) . '</div>';
+            $progRows .= '<span class="cmd" data-id="' . $cmd->getId() . '" style="font-size:11px;font-weight:700;color:' . $modeColor . ';min-width:32px;text-align:center;">' . $mode . '</span>';
+
+            foreach (['off' => ['Off', '#ef5350'], 'on' => ['On', '#43a047'], 'auto' => ['Auto', '#1e88e5']] as $key => [$lbl, $clr]) {
+                $actCmd = $this->getCmd('action', $prefix . '_set_' . $key);
+                if ($actCmd) {
+                    $isActive = (strtolower($mode) === $key);
+                    $progRows .= '<a class="cmd action" data-id="' . $actCmd->getId() . '"';
+                    $progRows .= ' style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;';
+                    $progRows .= 'color:#fff;background:' . $clr . ';border:none;text-decoration:none;';
+                    $progRows .= 'opacity:' . ($isActive ? '1' : '0.35') . ';"';
+                    $progRows .= ' title="' . htmlspecialchars($lbl) . '">' . $lbl . '</a>';
+                }
+            }
+            $progRows .= '</div>';
+        }
+
+        if ($progRows !== '') {
+            $h .= '<div style="background:#fff;border-top:2px solid #e3f2fd;">';
+            $h .= '<div style="padding:5px 12px;font-size:10px;font-weight:700;color:#90a4ae;text-transform:uppercase;letter-spacing:.8px;">Programmes</div>';
+            $h .= $progRows;
+            $h .= '</div>';
+        }
+
+        $h .= '<div class="eqLogicAlert alert" style="display:none;"></div>';
+        $h .= '</div>';
+
+        return $this->postToHtml($_version, $h);
+    }
+
     // ─── Rafraîchissement complet ────────────────────────────────────
     public function pull() {
         $this->ensureToken();
