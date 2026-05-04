@@ -201,11 +201,12 @@ if (!isConnect('admin')) {
         });
 
         $(document).off('click', '#bt_saveEq').on('click', '#bt_saveEq', function () {
-            var eq = $('.eqLogic').getValues('.eqLogicAttr');
-            eq.eqLogic.eqType_name = _eqType;
+            var vals = $('.eqLogic').getValues('.eqLogicAttr');
+            var eq = (vals && vals.eqLogic) ? vals.eqLogic : vals;
+            eq.eqType_name = _eqType;
             jeedom.eqLogic.save({
                 type: _eqType,
-                eqLogics: [eq.eqLogic],
+                eqLogics: [eq],
                 error: function (err) { _notify('Erreur', err.message, 'danger'); },
                 success: function (data) {
                     modifyWithoutSave = false;
