@@ -126,10 +126,18 @@ if (!isConnect('admin')) {
 (function () {
     var _eqType = 'myindygojeedom';
 
+    function _notify(title, msg, type) {
+        var cls = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger';
+        var $n = $('<div class="alert alert-' + cls + '" style="position:fixed;top:60px;right:20px;z-index:9999;min-width:280px;max-width:420px;box-shadow:0 2px 8px rgba(0,0,0,.3)">' +
+            '<strong>' + title + '</strong> ' + msg + '</div>');
+        $('body').append($n);
+        setTimeout(function () { $n.fadeOut(400, function () { $n.remove(); }); }, 4000);
+    }
+
     function openEqLogic(id) {
         jeedom.eqLogic.byId({
             id: id,
-            error: function (err) { notify('Erreur', err.message, 'danger'); },
+            error: function (err) { _notify('Erreur', err.message, 'danger'); },
             success: function (eq) {
                 $('.eqLogic').setValues(eq, '.eqLogicAttr');
                 modifyWithoutSave = false;
@@ -142,7 +150,7 @@ if (!isConnect('admin')) {
     function loadList() {
         jeedom.eqLogic.byType({
             type: _eqType,
-            error: function (err) { notify('Erreur', err.message, 'danger'); },
+            error: function (err) { _notify('Erreur', err.message, 'danger'); },
             success: function (eqLogics) {
                 if (!eqLogics || eqLogics.length === 0) {
                     $('#div_resumeEqLogic').html(
@@ -177,7 +185,7 @@ if (!isConnect('admin')) {
                 jeedom.eqLogic.save({
                     type: _eqType,
                     eqLogics: [{ name: result.trim(), eqType_name: _eqType, isEnable: 1, isVisible: 1 }],
-                    error: function (err) { notify('Erreur', err.message, 'danger'); },
+                    error: function (err) { _notify('Erreur', err.message, 'danger'); },
                     success: function (data) {
                         var eq = Array.isArray(data) ? data[0] : data;
                         openEqLogic(eq.id);
@@ -198,10 +206,10 @@ if (!isConnect('admin')) {
             jeedom.eqLogic.save({
                 type: _eqType,
                 eqLogics: [eq.eqLogic],
-                error: function (err) { notify('Erreur', err.message, 'danger'); },
+                error: function (err) { _notify('Erreur', err.message, 'danger'); },
                 success: function (data) {
                     modifyWithoutSave = false;
-                    notify('Info', '{{Sauvegarde réussie}}', 'success');
+                    _notify('OK', '{{Sauvegarde réussie}}', 'success');
                     var saved = Array.isArray(data) ? data[0] : data;
                     openEqLogic(saved.id);
                 }
@@ -214,7 +222,7 @@ if (!isConnect('admin')) {
                 if (!result) return;
                 jeedom.eqLogic.remove({
                     id: id,
-                    error: function (err) { notify('Erreur', err.message, 'danger'); },
+                    error: function (err) { _notify('Erreur', err.message, 'danger'); },
                     success: function () {
                         $('.eqLogic').hide();
                         $('.eqLogicThumbnailDisplay').show();
@@ -226,7 +234,7 @@ if (!isConnect('admin')) {
 
         $(document).off('click', '#bt_testIndygo').on('click', '#bt_testIndygo', function () {
             var id = $('.eqLogic .eqLogicAttr[data-l1key=id]').val();
-            if (!id) { notify('Attention', '{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
+            if (!id) { _notify('Attention','{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
             $('#div_indygo_result').show();
             $('#span_indygo_result').html('<i class="fas fa-spinner fa-spin"></i> {{Test en cours…}}');
             $.ajax({
@@ -244,7 +252,7 @@ if (!isConnect('admin')) {
 
         $(document).off('click', '#bt_syncIndygo').on('click', '#bt_syncIndygo', function () {
             var id = $('.eqLogic .eqLogicAttr[data-l1key=id]').val();
-            if (!id) { notify('Attention', '{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
+            if (!id) { _notify('Attention','{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
             $('#div_indygo_result').show();
             $('#span_indygo_result').html('<i class="fas fa-spinner fa-spin"></i> {{Synchronisation…}}');
             $.ajax({
