@@ -57,9 +57,12 @@ var myindygojeedom = (function () {
                     if (result === null || result.trim() === '') return;
                     jeedom.eqLogic.save({
                         type: _eqType,
-                        eqLogic: { name: result.trim(), eqType_name: _eqType, isEnable: 1, isVisible: 1 },
+                        eqLogics: [{ name: result.trim(), eqType_name: _eqType, isEnable: 1, isVisible: 1 }],
                         error: function (err) { notify('Erreur', err.message, 'danger'); },
-                        success: function (eq) { openEqLogic(eq.id); }
+                        success: function (data) {
+                            var eq = Array.isArray(data) ? data[0] : data;
+                            openEqLogic(eq.id);
+                        }
                     });
                 });
             });
@@ -77,12 +80,13 @@ var myindygojeedom = (function () {
                 eq.eqLogic.eqType_name = _eqType;
                 jeedom.eqLogic.save({
                     type: _eqType,
-                    eqLogic: eq.eqLogic,
+                    eqLogics: [eq.eqLogic],
                     error: function (err) { notify('Erreur', err.message, 'danger'); },
                     success: function (data) {
                         modifyWithoutSave = false;
                         notify('Info', '{{Sauvegarde réussie}}', 'success');
-                        openEqLogic(data.id);
+                        var saved = Array.isArray(data) ? data[0] : data;
+                        openEqLogic(saved.id);
                     }
                 });
             });
