@@ -5,8 +5,7 @@ function addCmdToTable(_cmd) {
     if (!isset(_cmd)) _cmd = {configuration: {}};
     if (!isset(_cmd.configuration)) _cmd.configuration = {};
 
-    var tr = '<tr class="cmd" data-cmd_id="' + init(_cmd.id) + '">';
-    tr += '<td><span class="cmdAttr" data-l1key="id"></span></td>';
+    var tr = '<td><span class="cmdAttr" data-l1key="id"></span></td>';
     tr += '<td><span class="cmdAttr" data-l1key="name"></span></td>';
     tr += '<td><span class="cmdAttr" data-l1key="type"></span></td>';
     tr += '<td><span class="cmdAttr" data-l1key="subType"></span></td>';
@@ -18,11 +17,13 @@ function addCmdToTable(_cmd) {
         tr += '<a class="btn btn-default btn-xs cmdAction" data-action="test"><i class="fa fa-rss"></i> {{Tester}}</a>';
     }
     tr += '</td>';
-    tr += '</tr>';
 
-    var $row = $(tr);
-    $('#table_cmd tbody').append($row);
-    $row.setJeeValues(_cmd, '.cmdAttr');
+    var newRow = document.createElement('tr');
+    newRow.className = 'cmd';
+    newRow.setAttribute('data-cmd_id', init(_cmd.id));
+    newRow.innerHTML = tr;
+    document.querySelector('#table_cmd tbody').appendChild(newRow);
+    newRow.setJeeValues(_cmd, '.cmdAttr');
 }
 
 /* Tester la connexion */
