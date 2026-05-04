@@ -2,6 +2,8 @@
 if (!isConnect('admin')) {
     throw new Exception('{{401 - Accès non autorisé}}');
 }
+/* Inclusion explicite du JS du plugin */
+include_file('desktop', 'myindygojeedom', 'js', 'myindygojeedom');
 ?>
 
 <div class="row row-overflow">
@@ -119,3 +121,33 @@ if (!isConnect('admin')) {
         </div>
     </div>
 </div>
+
+<script>
+$(function () {
+    if (typeof myindygojeedom !== 'undefined') {
+        myindygojeedom.init();
+    }
+    /* Fallback direct si le JS externe n'est pas encore chargé */
+    $('#bt_addPiscine').off('click').on('click', function () {
+        bootbox.prompt('{{Nom de la piscine ?}}', function (result) {
+            if (!result || result.trim() === '') return;
+            jeedom.eqLogic.save({
+                type: 'myindygojeedom',
+                eqLogic: {name: result.trim(), eqType_name: 'myindygojeedom', isEnable: 1, isVisible: 1},
+                error: function (err) { notify('Erreur', err.message, 'danger'); },
+                success: function (eq) {
+                    jeedom.eqLogic.get({
+                        id: eq.id,
+                        success: function (eqLogic) {
+                            $('.eqLogic').setValues(eqLogic, '.eqLogicAttr');
+                            modifyWithoutSave = false;
+                            $('.eqLogicThumbnailDisplay').hide();
+                            $('.eqLogic').show();
+                        }
+                    });
+                }
+            });
+        });
+    });
+});
+</script>
