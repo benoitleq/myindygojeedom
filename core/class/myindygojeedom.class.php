@@ -63,32 +63,47 @@ class myindygojeedom extends eqLogic {
 
         $temp = ($cmdTemp) ? $cmdTemp->execCmd() : null;
         $filt = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
-
         $tempDisplay = ($temp !== null && $temp !== '')
-            ? number_format(floatval($temp), 1) . ' °C'
-            : '— °C';
-        $filtLabel = ($filt === null) ? '—' : ($filt ? '● Active' : '○ Arrêtée');
-        $filtColor = ($filt === null) ? '#90a4ae' : ($filt ? '#43a047' : '#e53935');
+            ? number_format(floatval($temp), 1) . ' °C' : '— °C';
 
-        // ── Conteneur principal ──────────────────────────────────────
+        // ── Styles helpers ──────────────────────────────────────────
+        $S_CARD   = 'background:#15191f;border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5);';
+        $S_HDR    = 'padding:14px 18px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e3a5f;';
+        $S_TITLE  = 'color:#fff;font-size:14px;font-weight:700;letter-spacing:.3px;';
+        $S_TEMP   = 'color:#60b4ff;font-size:22px;font-weight:800;';
+        $S_SEC    = 'padding:14px 18px;border-top:1px solid #1e2433;';
+        $S_STTL   = 'color:#5a6a80;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;';
+        $S_ROW    = 'display:flex;gap:10px;';
+
+        // ── Bouton helper ────────────────────────────────────────────
+        // Retourne le HTML d'un bouton de mode (Auto/On/Off)
+        $btn = function($cmdId, $icon, $label, $sublabel, $active, $activeGrad, $activeBorder, $activeIconColor, $activeLabelColor) {
+            $bg     = $active ? $activeGrad  : 'background:#1e2433;';
+            $border = $active ? $activeBorder : 'border:1px solid #252d3d;';
+            $ic     = $active ? $activeIconColor  : 'color:#2e3d55;';
+            $lc     = $active ? $activeLabelColor : 'color:#2e3d55;';
+            $sc     = $active ? 'color:#a0c0e0;'  : 'color:#1e2d40;';
+            $h  = '<a class="cmd action" data-id="' . $cmdId . '"';
+            $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+            $h .= 'padding:13px 6px;border-radius:10px;cursor:pointer;text-decoration:none;gap:4px;' . $bg . $border . '">';
+            $h .= '<i class="fas ' . $icon . '" style="font-size:20px;' . $ic . '"></i>';
+            $h .= '<span style="font-size:12px;font-weight:800;letter-spacing:.5px;' . $lc . '">' . $label . '</span>';
+            if ($sublabel !== '') {
+                $h .= '<span style="font-size:9px;letter-spacing:.5px;' . $sc . '">' . $sublabel . '</span>';
+            }
+            $h .= '</a>';
+            return $h;
+        };
+
+        // ── Conteneur ────────────────────────────────────────────────
         $h  = '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
-        $h .= ' data-eqLogic_id="' . $this->getId() . '"';
-        $h .= ' style="min-width:210px;border:1px solid #cfd8dc;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.08);">';
+        $h .= ' data-eqLogic_id="' . $this->getId() . '" style="' . $S_CARD . '">';
 
         // ── En-tête ──────────────────────────────────────────────────
-        $h .= '<div style="background:linear-gradient(135deg,#1565c0,#039be5);color:#fff;';
-        $h .= 'padding:9px 12px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;">';
-        $h .= '<i class="fas fa-swimming-pool"></i>';
-        $h .= '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' . htmlspecialchars($this->getName()) . '</span>';
-        $h .= '</div>';
-
-        // ── Stats (température + filtration) ─────────────────────────
-        $h .= '<div style="display:flex;padding:12px 10px;background:#f8fafc;gap:0;">';
-
-        // Température
-        $h .= '<div style="flex:1;text-align:center;">';
-        $h .= '<div style="font-size:11px;color:#78909c;margin-bottom:3px;"><i class="fas fa-thermometer-half" style="color:#ff7043;"></i>&nbsp;Eau</div>';
-        $h .= '<div style="font-size:24px;font-weight:700;color:#1a237e;">';
+        $h .= '<div style="' . $S_HDR . '">';
+        $h .= '<div style="' . $S_TITLE . '"><i class="fas fa-swimming-pool" style="margin-right:7px;opacity:.8;"></i>' . htmlspecialchars($this->getName()) . '</div>';
+        $h .= '<div style="' . $S_TEMP . 'display:flex;align-items:center;gap:5px;">';
+        $h .= '<i class="fas fa-thermometer-half" style="color:#ff7043;font-size:14px;"></i>';
         if ($cmdTemp) {
             $h .= '<span class="cmd" data-id="' . $cmdTemp->getId() . '">' . $tempDisplay . '</span>';
         } else {
@@ -96,59 +111,70 @@ class myindygojeedom extends eqLogic {
         }
         $h .= '</div></div>';
 
-        // Séparateur
-        $h .= '<div style="width:1px;background:#cfd8dc;margin:2px 6px;"></div>';
-
-        // Filtration
-        $h .= '<div style="flex:1;text-align:center;">';
-        $h .= '<div style="font-size:11px;color:#78909c;margin-bottom:3px;"><i class="fas fa-water" style="color:#1e88e5;"></i>&nbsp;Filtration</div>';
-        $h .= '<div style="font-size:14px;font-weight:700;color:' . $filtColor . ';">';
-        if ($cmdFilt) {
-            $h .= '<span class="cmd" data-id="' . $cmdFilt->getId() . '">' . $filtLabel . '</span>';
-        } else {
-            $h .= $filtLabel;
-        }
-        $h .= '</div></div>';
-
-        $h .= '</div>'; // stats
-
-        // ── Programmes ───────────────────────────────────────────────
-        $progRows = '';
+        // ── Sections programmes ──────────────────────────────────────
         foreach ($this->getCmd() as $cmd) {
             $logId = $cmd->getLogicalId();
             if ($cmd->getType() !== 'info') continue;
             if (strpos($logId, 'prog_') !== 0 || substr($logId, -5) !== '_mode') continue;
 
             $prefix   = substr($logId, 0, strlen($logId) - 5);
-            $progName = preg_replace('/ [—\-]+ mode$/u', '', $cmd->getName());
-            $mode     = $cmd->execCmd() ?? '—';
+            $progName = preg_replace('/ ?[—\-]+ ?mode$/u', '', $cmd->getName());
+            $progName = trim($progName);
+            if (strlen($progName) < 2) continue; // sauter les commandes orphelines sans nom
 
-            $modeColors = ['Off' => '#ef5350', 'On' => '#43a047', 'Auto' => '#1e88e5'];
-            $modeColor  = $modeColors[$mode] ?? '#90a4ae';
+            $mode    = $cmd->execCmd() ?? '';
+            $modeKey = strtolower($mode);
 
-            $progRows .= '<div style="display:flex;align-items:center;padding:7px 12px;border-top:1px solid #eceff1;gap:5px;">';
-            $progRows .= '<div style="flex:1;font-size:12px;color:#37474f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' . htmlspecialchars($progName) . '</div>';
-            $progRows .= '<span class="cmd" data-id="' . $cmd->getId() . '" style="font-size:11px;font-weight:700;color:' . $modeColor . ';min-width:32px;text-align:center;">' . $mode . '</span>';
+            // Détection du type de programme pour l'icône
+            $isFilt = (stripos($progName, 'filtrat') !== false || stripos($progName, 'pompe') !== false);
+            $isLight = (stripos($progName, 'éclairag') !== false || stripos($progName, 'lumièr') !== false
+                     || stripos($progName, 'lumier') !== false || stripos($progName, 'lampe') !== false);
+            $iconOn  = $isFilt ? 'fa-fan' : ($isLight ? 'fa-sun' : 'fa-play-circle');
+            $iconOff = $isFilt ? 'fa-stop-circle' : ($isLight ? 'fa-moon' : 'fa-stop-circle');
 
-            foreach (['off' => ['Off', '#ef5350'], 'on' => ['On', '#43a047'], 'auto' => ['Auto', '#1e88e5']] as $key => [$lbl, $clr]) {
-                $actCmd = $this->getCmd('action', $prefix . '_set_' . $key);
-                if ($actCmd) {
-                    $isActive = (strtolower($mode) === $key);
-                    $progRows .= '<a class="cmd action" data-id="' . $actCmd->getId() . '"';
-                    $progRows .= ' style="display:inline-block;font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;';
-                    $progRows .= 'color:#fff;background:' . $clr . ';border:none;text-decoration:none;';
-                    $progRows .= 'opacity:' . ($isActive ? '1' : '0.35') . ';"';
-                    $progRows .= ' title="' . htmlspecialchars($lbl) . '">' . $lbl . '</a>';
-                }
+            // Sous-label de l'état courant (pour filtration : running status)
+            $onSublabel  = ($isFilt && $filt !== null) ? ($filt ? 'ACTIF' : 'ARRÊTÉ') : '';
+            $offSublabel = ($isFilt && $filt !== null && !$filt) ? 'ARRÊTÉ' : '';
+
+            $h .= '<div style="' . $S_SEC . '">';
+            $h .= '<div style="' . $S_STTL . '">' . htmlspecialchars($progName) . '</div>';
+            $h .= '<div style="' . $S_ROW . '">';
+
+            $cmdAuto = $this->getCmd('action', $prefix . '_set_auto');
+            $cmdOn   = $this->getCmd('action', $prefix . '_set_on');
+            $cmdOff  = $this->getCmd('action', $prefix . '_set_off');
+
+            // Bouton AUTO (bleu)
+            if ($cmdAuto) {
+                $h .= $btn($cmdAuto->getId(), 'fa-clock', 'AUTO', '',
+                    $modeKey === 'auto',
+                    'background:linear-gradient(145deg,#0d2d6b,#1565c0);',
+                    'border:1px solid #1e88e5;',
+                    'color:#64b5f6;', 'color:#e3f2fd;'
+                );
             }
-            $progRows .= '</div>';
-        }
 
-        if ($progRows !== '') {
-            $h .= '<div style="background:#fff;border-top:2px solid #e3f2fd;">';
-            $h .= '<div style="padding:5px 12px;font-size:10px;font-weight:700;color:#90a4ae;text-transform:uppercase;letter-spacing:.8px;">Programmes</div>';
-            $h .= $progRows;
-            $h .= '</div>';
+            // Bouton ON (vert)
+            if ($cmdOn) {
+                $h .= $btn($cmdOn->getId(), $iconOn, 'ON', $onSublabel,
+                    $modeKey === 'on',
+                    'background:linear-gradient(145deg,#0a3d1a,#1b5e20);',
+                    'border:1px solid #2e7d32;',
+                    'color:#69f0ae;', 'color:#e8f5e9;'
+                );
+            }
+
+            // Bouton OFF (rouge)
+            if ($cmdOff) {
+                $h .= $btn($cmdOff->getId(), $iconOff, 'OFF', $offSublabel,
+                    $modeKey === 'off',
+                    'background:linear-gradient(145deg,#4a0909,#b71c1c);',
+                    'border:1px solid #c62828;',
+                    'color:#ef9a9a;', 'color:#ffebee;'
+                );
+            }
+
+            $h .= '</div></div>';
         }
 
         $h .= '<div class="eqLogicAlert alert" style="display:none;"></div>';
