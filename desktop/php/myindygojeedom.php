@@ -56,6 +56,14 @@ if (!isConnect('admin')) {
                         <fieldset>
                             <?php include_file('desktop', 'eqLogic', 'inc', 'core'); ?>
 
+                            <div class="form-group">
+                                <label class="col-sm-4 control-label">{{Nom}} <span class="text-danger">*</span></label>
+                                <div class="col-sm-6">
+                                    <input class="eqLogicAttr form-control" data-l1key="name"
+                                           placeholder="Ma piscine" id="input_eqName"/>
+                                </div>
+                            </div>
+
                             <hr/>
                             <legend><i class="fas fa-lock"></i> {{Connexion MyIndygo}}</legend>
 
@@ -126,6 +134,7 @@ if (!isConnect('admin')) {
 (function () {
     var _eqType = 'myindygojeedom';
     var _currentId = null;
+    var _currentName = null;
 
     function _notify(title, msg, type) {
         var cls = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger';
@@ -149,7 +158,9 @@ if (!isConnect('admin')) {
             error: ajaxErr,
             success: function (data) {
                 if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                _currentName = data.result.name || '';
                 $('.eqLogic').setValues(data.result, '.eqLogicAttr');
+                $('#input_eqName').val(_currentName);
                 modifyWithoutSave = false;
                 $('.eqLogicThumbnailDisplay').hide();
                 $('.eqLogic').show();
@@ -217,7 +228,7 @@ if (!isConnect('admin')) {
         $(document).off('click', '#bt_saveEq').on('click', '#bt_saveEq', function () {
             var vals = $('.eqLogic').getValues('.eqLogicAttr');
             var firstVal = Array.isArray(vals) ? (vals[0] || {}) : vals;
-            var name = $('[data-l1key="name"].eqLogicAttr').val() || '';
+            var name = $('#input_eqName').val() || $('[data-l1key="name"].eqLogicAttr').val() || _currentName || '';
             if (!name.trim()) { _notify('Erreur', '{{Le nom ne peut pas être vide}}', 'danger'); return; }
             var eq = {
                 id: _currentId || '',
