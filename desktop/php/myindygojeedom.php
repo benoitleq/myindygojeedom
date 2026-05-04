@@ -125,6 +125,7 @@ if (!isConnect('admin')) {
 
 (function () {
     var _eqType = 'myindygojeedom';
+    var _currentId = null;
 
     function _notify(title, msg, type) {
         var cls = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger';
@@ -134,12 +135,21 @@ if (!isConnect('admin')) {
         setTimeout(function () { $n.fadeOut(400, function () { $n.remove(); }); }, 4000);
     }
 
+    function ajaxErr(req) {
+        var msg = (req && req.responseJSON && req.responseJSON.result) ? req.responseJSON.result
+                : (req && req.responseText) ? req.responseText.substring(0, 200) : 'Erreur réseau';
+        _notify('Erreur', msg, 'danger');
+    }
+
     function openEqLogic(id) {
-        jeedom.eqLogic.byId({
-            id: id,
-            error: function (err) { _notify('Erreur', err.message, 'danger'); },
-            success: function (eq) {
-                $('.eqLogic').setValues(eq, '.eqLogicAttr');
+        _currentId = id;
+        $.ajax({
+            type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
+            data: {action: 'get', id: id}, dataType: 'json',
+            error: ajaxErr,
+            success: function (data) {
+                if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                $('.eqLogic').setValues(data.result, '.eqLogicAttr');
                 modifyWithoutSave = false;
                 $('.eqLogicThumbnailDisplay').hide();
                 $('.eqLogic').show();
@@ -148,10 +158,13 @@ if (!isConnect('admin')) {
     }
 
     function loadList() {
-        jeedom.eqLogic.byType({
-            type: _eqType,
-            error: function (err) { _notify('Erreur', err.message, 'danger'); },
-            success: function (eqLogics) {
+        $.ajax({
+            type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
+            data: {action: 'all', type: _eqType}, dataType: 'json',
+            error: ajaxErr,
+            success: function (data) {
+                if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                var eqLogics = data.result;
                 if (!eqLogics || eqLogics.length === 0) {
                     $('#div_resumeEqLogic').html(
                         '<br/><br/><center><i class="fas fa-swimming-pool" style="font-size:3em;color:#aaa"></i><br/><br/><span style="color:#aaa">{{Aucune piscine. Cliquez sur Ajouter.}}</span></center>'
@@ -182,19 +195,20 @@ if (!isConnect('admin')) {
         $(document).off('click', '#bt_addPiscine').on('click', '#bt_addPiscine', function () {
             bootbox.prompt('{{Nom de la piscine ?}}', function (result) {
                 if (result === null || result.trim() === '') return;
-                jeedom.eqLogic.save({
-                    type: _eqType,
-                    eqLogics: [{ name: result.trim(), eqType_name: _eqType, isEnable: 1, isVisible: 1 }],
-                    error: function (err) { _notify('Erreur', err.message, 'danger'); },
+                $.ajax({
+                    type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
+                    data: {action: 'save', eqLogic: JSON.stringify({name: result.trim(), eqType_name: _eqType, isEnable: 1, isVisible: 1})},
+                    dataType: 'json', error: ajaxErr,
                     success: function (data) {
-                        var eq = Array.isArray(data) ? data[0] : data;
-                        openEqLogic(eq.id);
+                        if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                        openEqLogic(data.result.id || data.result);
                     }
                 });
             });
         });
 
         $(document).off('click', '#bt_backList').on('click', '#bt_backList', function () {
+            _currentId = null;
             $('.eqLogic').hide();
             $('.eqLogicThumbnailDisplay').show();
             loadList();
@@ -202,29 +216,41 @@ if (!isConnect('admin')) {
 
         $(document).off('click', '#bt_saveEq').on('click', '#bt_saveEq', function () {
             var vals = $('.eqLogic').getValues('.eqLogicAttr');
-            var eq = (vals && vals.eqLogic) ? vals.eqLogic : vals;
-            eq.eqType_name = _eqType;
-            jeedom.eqLogic.save({
-                type: _eqType,
-                eqLogics: [eq],
-                error: function (err) { _notify('Erreur', err.message, 'danger'); },
+            var firstVal = Array.isArray(vals) ? (vals[0] || {}) : vals;
+            var name = $('[data-l1key="name"].eqLogicAttr').val() || '';
+            if (!name.trim()) { _notify('Erreur', '{{Le nom ne peut pas être vide}}', 'danger'); return; }
+            var eq = {
+                id: _currentId || '',
+                name: name,
+                eqType_name: _eqType,
+                isEnable: $('[data-l1key="isEnable"].eqLogicAttr').val() || 1,
+                isVisible: $('[data-l1key="isVisible"].eqLogicAttr').val() || 1,
+                configuration: firstVal.configuration || {}
+            };
+            $.ajax({
+                type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
+                data: {action: 'save', eqLogic: JSON.stringify(eq)},
+                dataType: 'json', error: ajaxErr,
                 success: function (data) {
+                    if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
                     modifyWithoutSave = false;
                     _notify('OK', '{{Sauvegarde réussie}}', 'success');
-                    var saved = Array.isArray(data) ? data[0] : data;
-                    openEqLogic(saved.id);
+                    var savedId = (data.result && data.result.id) ? data.result.id : (data.result || _currentId);
+                    openEqLogic(savedId);
                 }
             });
         });
 
         $(document).off('click', '#bt_removeEq').on('click', '#bt_removeEq', function () {
-            var id = $('.eqLogic .eqLogicAttr[data-l1key=id]').val();
             bootbox.confirm('{{Supprimer cet équipement ?}}', function (result) {
                 if (!result) return;
-                jeedom.eqLogic.remove({
-                    id: id,
-                    error: function (err) { _notify('Erreur', err.message, 'danger'); },
-                    success: function () {
+                $.ajax({
+                    type: 'POST', url: 'core/ajax/eqLogic.ajax.php',
+                    data: {action: 'remove', id: _currentId},
+                    dataType: 'json', error: ajaxErr,
+                    success: function (data) {
+                        if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                        _currentId = null;
                         $('.eqLogic').hide();
                         $('.eqLogicThumbnailDisplay').show();
                         loadList();
@@ -234,14 +260,13 @@ if (!isConnect('admin')) {
         });
 
         $(document).off('click', '#bt_testIndygo').on('click', '#bt_testIndygo', function () {
-            var id = $('.eqLogic .eqLogicAttr[data-l1key=id]').val();
-            if (!id) { _notify('Attention','{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
+            if (!_currentId) { _notify('Attention', '{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
             $('#div_indygo_result').show();
             $('#span_indygo_result').html('<i class="fas fa-spinner fa-spin"></i> {{Test en cours…}}');
             $.ajax({
                 type: 'POST', url: 'plugins/' + _eqType + '/core/php/jeeIndygo.ajax.php',
-                data: { action: 'testConnection', id: id }, dataType: 'json',
-                error: function (req, status, err) { handleAjaxError(req, status, err); },
+                data: {action: 'testConnection', id: _currentId}, dataType: 'json',
+                error: ajaxErr,
                 success: function (data) {
                     $('#span_indygo_result').html(data.state === 'ok'
                         ? '<span class="label label-success"><i class="fas fa-check"></i> {{Connexion réussie !}}</span>'
@@ -252,20 +277,19 @@ if (!isConnect('admin')) {
         });
 
         $(document).off('click', '#bt_syncIndygo').on('click', '#bt_syncIndygo', function () {
-            var id = $('.eqLogic .eqLogicAttr[data-l1key=id]').val();
-            if (!id) { _notify('Attention','{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
+            if (!_currentId) { _notify('Attention', '{{Sauvegardez d\'abord l\'équipement}}', 'warning'); return; }
             $('#div_indygo_result').show();
             $('#span_indygo_result').html('<i class="fas fa-spinner fa-spin"></i> {{Synchronisation…}}');
             $.ajax({
                 type: 'POST', url: 'plugins/' + _eqType + '/core/php/jeeIndygo.ajax.php',
-                data: { action: 'sync', id: id }, dataType: 'json',
-                error: function (req, status, err) { handleAjaxError(req, status, err); },
+                data: {action: 'sync', id: _currentId}, dataType: 'json',
+                error: ajaxErr,
                 success: function (data) {
                     $('#span_indygo_result').html(data.state === 'ok'
                         ? '<span class="label label-success"><i class="fas fa-check"></i> {{Synchronisation réussie !}}</span>'
                         : '<span class="label label-danger"><i class="fas fa-times"></i> ' + data.result + '</span>'
                     );
-                    if (data.state === 'ok') openEqLogic(id);
+                    if (data.state === 'ok') openEqLogic(_currentId);
                 }
             });
         });
