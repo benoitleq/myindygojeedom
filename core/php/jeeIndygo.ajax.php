@@ -7,6 +7,20 @@ try {
         throw new Exception('{{401 - Accès non autorisé}}');
     }
 
+    // ─── listAll : liste tous les équipements du plugin ──────────────
+    if (init('action') == 'listAll') {
+        $eqLogics = eqLogic::byType('myindygojeedom');
+        $result = array();
+        foreach ($eqLogics as $eq) {
+            $result[] = array(
+                'id'       => $eq->getId(),
+                'name'     => $eq->getName(),
+                'isEnable' => $eq->getIsEnable(),
+            );
+        }
+        ajax::success($result);
+    }
+
     // ─── sync : rafraîchit un équipement à la demande ─────────────────
     if (init('action') == 'sync') {
         $eqLogic = myindygojeedom::byId(init('id'));

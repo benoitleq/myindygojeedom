@@ -167,10 +167,13 @@ if (!isConnect('admin')) {
     }
 
     function loadList() {
-        jeedom.eqLogic.byType({
-            type: _eqType,
-            error: function (err) { _notify('Erreur', err.message || JSON.stringify(err), 'danger'); },
-            success: function (eqLogics) {
+        $.ajax({
+            type: 'POST', url: 'plugins/' + _eqType + '/core/php/jeeIndygo.ajax.php',
+            data: {action: 'listAll'}, dataType: 'json',
+            error: ajaxErr,
+            success: function (data) {
+                if (data.state !== 'ok') { _notify('Erreur', data.result, 'danger'); return; }
+                var eqLogics = data.result;
                 if (!eqLogics || eqLogics.length === 0) {
                     $('#div_resumeEqLogic').html(
                         '<br/><br/><center><i class="fas fa-swimming-pool" style="font-size:3em;color:#aaa"></i><br/><br/><span style="color:#aaa">{{Aucune piscine. Cliquez sur Ajouter.}}</span></center>'
