@@ -47,11 +47,8 @@ class myindygojeedom extends eqLogic {
 
     // ─── Appelé après chaque sauvegarde dans l'UI ─────────────────────
     public function postSave() {
-        try {
-            $this->pull();
-        } catch (Exception $e) {
-            log::add('myindygojeedom', 'warning', '[postSave] ' . $e->getMessage());
-        }
+        // Ne pas appeler pull() au postSave : les identifiants viennent d'être sauvegardés
+        // mais l'utilisateur doit valider avec "Tester la connexion" ou "Synchroniser".
     }
 
     // ─── Rafraîchissement complet ────────────────────────────────────
@@ -93,13 +90,26 @@ class myindygojeedom extends eqLogic {
         // 6. Mise à jour des commandes info
         $this->updateTemperatureCmd($temperature);
         $this->updateFiltrationRunningCmd($filtRunning);
+
+        $seenProgIds = [];
         foreach ($programs as $prog) {
+            $progId = $prog['program_id'];
+            if ($progId === null || $progId === '') {
+                log::add('myindygojeedom', 'warning', '[pull] programme sans ID ignoré');
+                continue;
+            }
+            $key = $prog['module_id'] . '|' . $progId;
+            if (isset($seenProgIds[$key])) {
+                log::add('myindygojeedom', 'debug', '[pull] programme dupliqué ignoré : ' . $progId);
+                continue;
+            }
+            $seenProgIds[$key] = true;
             $this->updateProgramCmds($prog);
         }
 
         log::add(
             'myindygojeedom', 'info',
-            '[pull] OK — temp=' . $temperature . '°C, ' . count($programs) . ' programme(s)'
+            '[pull] OK — temp=' . $temperature . '°C, ' . count($seenProgIds) . ' programme(s)'
         );
     }
 
