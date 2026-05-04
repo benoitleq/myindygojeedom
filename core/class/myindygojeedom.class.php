@@ -125,7 +125,8 @@ class myindygojeedom extends eqLogic {
 
         $resp = $this->httpRequest('POST', '/oauth2/token',
             ['grant_type' => 'password', 'username' => $email, 'password' => $password, 'scope' => '*'],
-            ['Authorization: Basic ' . $basic]
+            ['Authorization: Basic ' . $basic, 'Content-Type: application/x-www-form-urlencoded'],
+            true
         );
 
         if (empty($resp['access_token'])) {
@@ -417,7 +418,7 @@ class myindygojeedom extends eqLogic {
         }
     }
 
-    private function httpRequest($method, $path, $body = null, $headers = []) {
+    private function httpRequest($method, $path, $body = null, $headers = [], $formEncoded = false) {
         $url = self::BASE_URL . $path;
         $ch  = curl_init($url);
 
@@ -431,7 +432,9 @@ class myindygojeedom extends eqLogic {
         $METHOD = strtoupper($method);
         if ($METHOD === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
-            if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $formEncoded ? http_build_query($body) : json_encode($body));
+            }
         } elseif ($METHOD === 'PUT') {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
             if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
