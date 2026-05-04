@@ -127,7 +127,7 @@ if (!isConnect('admin')) {
     var _eqType = 'myindygojeedom';
 
     function openEqLogic(id) {
-        jeedom.eqLogic.get({
+        jeedom.eqLogic.byId({
             id: id,
             error: function (err) { notify('Erreur', err.message, 'danger'); },
             success: function (eq) {
@@ -140,7 +140,7 @@ if (!isConnect('admin')) {
     }
 
     function loadList() {
-        jeedom.eqLogic.getAll({
+        jeedom.eqLogic.byType({
             type: _eqType,
             error: function (err) { notify('Erreur', err.message, 'danger'); },
             success: function (eqLogics) {
