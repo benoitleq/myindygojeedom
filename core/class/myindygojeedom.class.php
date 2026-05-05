@@ -144,8 +144,13 @@ class myindygojeedom extends eqLogic {
             }
             $sections[$prefix]['cmds'][$verb] = $cmd;
             if (empty($sections[$prefix]['name'])) {
-                $rawName = preg_replace('/ ?→.+$/u', '', $cmd->getName());
-                $sections[$prefix]['name'] = trim($rawName);
+                $dispName = trim($cmd->getConfiguration('display_name') ?? '');
+                if (strlen($dispName) > 1) {
+                    $sections[$prefix]['name'] = $dispName;
+                } else {
+                    $rawName = preg_replace('/ ?→.+$/u', '', $cmd->getName());
+                    $sections[$prefix]['name'] = trim($rawName);
+                }
             }
         }
         foreach ($sections as $prefix => &$sec) {
