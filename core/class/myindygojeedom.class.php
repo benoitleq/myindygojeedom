@@ -124,9 +124,9 @@ class myindygojeedom extends eqLogic {
         $h .= '<i class="fas fa-thermometer-half" style="color:#ff7043;font-size:22px;"></i>';
         if ($cmdTemp) {
             $h .= '<span class="cmd" data-id="' . $cmdTemp->getId() . '"';
-            $h .= ' style="color:#60b4ff;font-size:26px;font-weight:800;line-height:1;">' . $tempStr . '</span>';
+            $h .= ' style="color:#ffffff;font-size:26px;font-weight:800;line-height:1;">' . $tempStr . '</span>';
         } else {
-            $h .= '<span style="color:#60b4ff;font-size:26px;font-weight:800;">' . $tempStr . '</span>';
+            $h .= '<span style="color:#ffffff;font-size:26px;font-weight:800;">' . $tempStr . '</span>';
         }
         if ($filt !== null) {
             $fc = $filt ? '#69f0ae' : '#ef9a9a';
@@ -476,7 +476,8 @@ class myindygojeedom extends eqLogic {
         }
         $cmdMode->setName($progName . ' — mode');
         $cmdMode->save();
-        $modeName = self::MODE_NAMES[$mode] ?? 'Indéterminé';
+        $modeInt  = is_numeric($mode) ? (int)$mode : -1;
+        $modeName = self::MODE_NAMES[$modeInt] ?? 'Indéterminé';
         $cmdMode->event($modeName);
 
         // Commandes action — toujours mettre à jour le nom et la configuration
