@@ -374,30 +374,44 @@ class myindygojeedom extends eqLogic {
         foreach ($modules as $mod) {
             $modId   = (string)($mod['id'] ?? '');
             $modName = $mod['name'] ?? ('Module ' . $modId);
-            foreach ($mod['programs'] ?? [] as $prog) {
+            $progList = $mod['programs'] ?? [];
+            log::add('myindygojeedom', 'debug', '[extractPrograms] module=' . $modName . ' (' . $modId . ') — ' . count($progList) . ' programme(s)');
+            foreach ($progList as $prog) {
                 $pc = $prog['programCharacteristics'] ?? null;
-                if (!is_array($pc)) continue;
-                $ptype = $pc['programType'] ?? null;
-                if (!is_int($ptype)) continue;
+                if (!is_array($pc)) {
+                    log::add('myindygojeedom', 'debug', '[extractPrograms] skip prog id=' . json_encode($prog['id'] ?? null) . ' — pas de programCharacteristics');
+                    continue;
+                }
+                $ptypeRaw = $pc['programType'] ?? null;
+                if (!is_numeric($ptypeRaw) || (int)$ptypeRaw <= 0) {
+                    log::add('myindygojeedom', 'debug', '[extractPrograms] skip prog — programType invalide : ' . json_encode($ptypeRaw));
+                    continue;
+                }
+                $ptype = (int)$ptypeRaw;
 
                 $rawProgId = $prog['id'] ?? null;
                 $progId    = ($rawProgId !== null && $rawProgId !== '')
                     ? (string)$rawProgId
                     : ('ftype' . $ptype . '_mod' . $modId);
 
+                $progName  = (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype);
+                $modeRaw   = $pc['mode'] ?? null;
+                log::add('myindygojeedom', 'debug', '[extractPrograms] prog=' . $progName . ' type=' . $ptype . ' id=' . $progId . ' mode=' . json_encode($modeRaw));
+
                 $out[] = [
                     'module_id'       => $modId,
                     'module_name'     => $modName,
                     'program_id'      => $progId,
-                    'program_name'    => (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype),
+                    'program_name'    => $progName,
                     'program_type'    => $ptype,
                     'is_filtration'   => $ptype === self::PROGRAM_TYPE_FILTRATION,
-                    'current_mode'    => $pc['mode'] ?? null,
+                    'current_mode'    => $modeRaw,
                     'typeIsLoraWanV2' => $mod['typeIsLoraWanV2'] ?? false,
                     'raw'             => $prog,
                 ];
             }
         }
+        log::add('myindygojeedom', 'debug', '[extractPrograms] total=' . count($out) . ' programme(s) extraits');
         return $out;
     }
 
