@@ -68,13 +68,14 @@ class myindygojeedom extends eqLogic {
             ? number_format(floatval($temp), 1) . ' °C' : '— °C';
 
         // ── Styles helpers ──────────────────────────────────────────
-        $S_CARD   = 'background:#15191f;border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5);';
-        $S_HDR    = 'padding:14px 18px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e3a5f;';
-        $S_TITLE  = 'color:#fff;font-size:14px;font-weight:700;letter-spacing:.3px;';
-        $S_TEMP   = 'color:#60b4ff;font-size:22px;font-weight:800;';
-        $S_SEC    = 'padding:14px 18px;border-top:1px solid #1e2433;';
-        $S_STTL   = 'color:#5a6a80;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;';
-        $S_ROW    = 'display:flex;gap:10px;';
+        // overflow:visible sur le card pour que les sections ne soient pas coupées
+        $S_CARD   = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5);';
+        $S_HDR    = 'padding:10px 16px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e3a5f;border-radius:14px 14px 0 0;';
+        $S_TITLE  = 'color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;';
+        $S_TEMP   = 'color:#60b4ff;font-size:18px;font-weight:800;';
+        $S_SEC    = 'padding:10px 14px;border-top:1px solid #1e2433;';
+        $S_STTL   = 'color:#5a6a80;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
+        $S_ROW    = 'display:flex;gap:8px;';
 
         // ── Bouton helper ────────────────────────────────────────────
         // Retourne le HTML d'un bouton de mode (Auto/On/Off)
@@ -86,7 +87,7 @@ class myindygojeedom extends eqLogic {
             $sc     = $active ? 'color:#a0c0e0;'  : 'color:#1e2d40;';
             $h  = '<a class="cmd action" data-id="' . $cmdId . '"';
             $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-            $h .= 'padding:13px 6px;border-radius:10px;cursor:pointer;text-decoration:none;gap:4px;' . $bg . $border . '">';
+            $h .= 'padding:9px 4px;border-radius:10px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $border . '">';
             $h .= '<i class="fas ' . $icon . '" style="font-size:20px;' . $ic . '"></i>';
             $h .= '<span style="font-size:12px;font-weight:800;letter-spacing:.5px;' . $lc . '">' . $label . '</span>';
             if ($sublabel !== '') {
@@ -134,14 +135,18 @@ class myindygojeedom extends eqLogic {
         // Attacher la commande info mode (si elle existe)
         foreach ($sections as $prefix => &$sec) {
             $sec['mode_cmd'] = $this->getCmd('info', $prefix . '_mode');
+            $sec['is_filt']  = stripos($sec['name'], 'filtrat') !== false || stripos($sec['name'], 'pompe') !== false;
         }
         unset($sec);
+
+        // Filtration en premier
+        uasort($sections, function($a, $b) { return (int)$b['is_filt'] - (int)$a['is_filt']; });
 
         foreach ($sections as $prefix => $sec) {
             $progName = $sec['name'];
             if (strlen($progName) < 2) continue;
 
-            $isFilt  = stripos($progName, 'filtrat') !== false || stripos($progName, 'pompe') !== false;
+            $isFilt  = $sec['is_filt'];
             $iconOn  = $isFilt ? 'fa-fan'         : 'fa-sun';
             $iconOff = $isFilt ? 'fa-stop-circle' : 'fa-moon';
 
