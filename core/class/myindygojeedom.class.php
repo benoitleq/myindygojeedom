@@ -53,9 +53,10 @@ class myindygojeedom extends eqLogic {
 
     // ─── Widget dashboard ────────────────────────────────────────────
     public function toHtml($_version = 'dashboard') {
-        $replace = $this->preToHtml($_version);
-        if (!is_array($replace)) {
-            return $replace;
+        // Pas de cache : on relit toujours les valeurs courantes des commandes
+        // pour que l'état actif (AUTO/ON/OFF) soit toujours à jour.
+        if (!$this->getIsEnable()) {
+            return '';
         }
 
         $cmdTemp = $this->getCmd('info', 'temperature');
@@ -180,7 +181,7 @@ class myindygojeedom extends eqLogic {
         $h .= '<div class="eqLogicAlert alert" style="display:none;"></div>';
         $h .= '</div>';
 
-        return $this->postToHtml($_version, $h);
+        return $h;
     }
 
     // ─── Rafraîchissement complet ────────────────────────────────────
@@ -190,6 +191,12 @@ class myindygojeedom extends eqLogic {
         // 0. Nettoyage des commandes avec des logicalId obsolètes (anciennes versions du plugin)
         foreach ($this->getCmd() as $cmd) {
             $logId = $cmd->getLogicalId();
+            // prog__* = program_id vide (ancienne version avec null program_id)
+            if (strpos($logId, 'prog__') === 0) {
+                log::add('myindygojeedom', 'info', '[pull] suppression cmd prog__ vide logicalId=' . $logId);
+                $cmd->remove();
+                continue;
+            }
             if ($logId !== 'temperature' && $logId !== 'filtration_running'
                 && strpos($logId, 'prog_') !== 0) {
                 log::add('myindygojeedom', 'info', '[pull] suppression cmd obsolète logicalId=' . $logId);
@@ -373,10 +380,15 @@ class myindygojeedom extends eqLogic {
                 $ptype = $pc['programType'] ?? null;
                 if (!is_int($ptype)) continue;
 
+                $rawProgId = $prog['id'] ?? null;
+                $progId    = ($rawProgId !== null && $rawProgId !== '')
+                    ? (string)$rawProgId
+                    : ('ftype' . $ptype . '_mod' . $modId);
+
                 $out[] = [
                     'module_id'       => $modId,
                     'module_name'     => $modName,
-                    'program_id'      => $prog['id'] ?? null,
+                    'program_id'      => $progId,
                     'program_name'    => (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype),
                     'program_type'    => $ptype,
                     'is_filtration'   => $ptype === self::PROGRAM_TYPE_FILTRATION,
