@@ -470,22 +470,22 @@ class myindygojeedom extends eqLogic {
         $progName = $prog['program_name'];
         $mode     = $prog['current_mode'];
 
-        // Commande info : mode courant (texte)
+        // Commande info : mode courant — toujours mettre à jour le nom
         $logicalId = 'prog_' . $progId . '_mode';
         $cmdMode   = $this->getCmd('info', $logicalId);
         if (!is_object($cmdMode)) {
             $cmdMode = new myindygojeedomCmd();
             $cmdMode->setLogicalId($logicalId);
             $cmdMode->setEqLogic_id($this->getId());
-            $cmdMode->setName($progName . ' — mode');
             $cmdMode->setType('info');
             $cmdMode->setSubType('string');
-            $cmdMode->save();
         }
+        $cmdMode->setName($progName . ' — mode');
+        $cmdMode->save();
         $modeName = self::MODE_NAMES[$mode] ?? 'Indéterminé';
         $cmdMode->event($modeName);
 
-        // Commandes action : Off / On / Auto
+        // Commandes action — toujours mettre à jour le nom et la configuration
         foreach (self::MODE_NAMES as $modeInt => $modeLbl) {
             $actId  = 'prog_' . $progId . '_set_' . strtolower($modeLbl);
             $cmdAct = $this->getCmd('action', $actId);
@@ -493,14 +493,14 @@ class myindygojeedom extends eqLogic {
                 $cmdAct = new myindygojeedomCmd();
                 $cmdAct->setLogicalId($actId);
                 $cmdAct->setEqLogic_id($this->getId());
-                $cmdAct->setName($progName . ' → ' . $modeLbl);
                 $cmdAct->setType('action');
                 $cmdAct->setSubType('other');
-                $cmdAct->setConfiguration('module_id', $prog['module_id']);
-                $cmdAct->setConfiguration('program_id', $progId);
-                $cmdAct->setConfiguration('mode', $modeInt);
-                $cmdAct->save();
             }
+            $cmdAct->setName($progName . ' → ' . $modeLbl);
+            $cmdAct->setConfiguration('module_id', $prog['module_id']);
+            $cmdAct->setConfiguration('program_id', $progId);
+            $cmdAct->setConfiguration('mode', $modeInt);
+            $cmdAct->save();
         }
     }
 
