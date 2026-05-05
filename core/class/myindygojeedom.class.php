@@ -112,42 +112,53 @@ class myindygojeedom extends eqLogic {
         }
         $h .= '</div></div>';
 
-        // ── Sections programmes ──────────────────────────────────────
+        // ── Sections programmes (construites depuis les cmds action) ────
+        // Regrouper les commandes action par préfixe prog_X
+        $sections = [];
         foreach ($this->getCmd() as $cmd) {
+            if ($cmd->getType() !== 'action') continue;
             $logId = $cmd->getLogicalId();
-            if ($cmd->getType() !== 'info') continue;
-            if (strpos($logId, 'prog_') !== 0 || substr($logId, -5) !== '_mode') continue;
+            if (!preg_match('/^(prog_.+)_(set_auto|set_on|set_off)$/', $logId, $m)) continue;
+            $prefix = $m[1];
+            $verb   = $m[2];
+            if (!isset($sections[$prefix])) {
+                $sections[$prefix] = ['cmds' => [], 'mode_cmd' => null, 'name' => ''];
+            }
+            $sections[$prefix]['cmds'][$verb] = $cmd;
+            if (empty($sections[$prefix]['name'])) {
+                // Extraire le nom du programme depuis le nom de la commande (ex: "Filtration → Auto" → "Filtration")
+                $rawName = preg_replace('/ ?→.+$/u', '', $cmd->getName());
+                $sections[$prefix]['name'] = trim($rawName);
+            }
+        }
+        // Attacher la commande info mode (si elle existe)
+        foreach ($sections as $prefix => &$sec) {
+            $sec['mode_cmd'] = $this->getCmd('info', $prefix . '_mode');
+        }
+        unset($sec);
 
-            $prefix   = substr($logId, 0, strlen($logId) - 5);
-            $progName = preg_replace('/ ?[—\-]+ ?mode$/u', '', $cmd->getName());
-            $progName = trim($progName);
-            if (strlen($progName) < 2) continue; // sauter les commandes orphelines sans nom
+        foreach ($sections as $prefix => $sec) {
+            $progName = $sec['name'];
+            if (strlen($progName) < 2) continue;
 
-            $mode    = $cmd->execCmd() ?? '';
-            $modeKey = strtolower($mode);
+            $isFilt  = stripos($progName, 'filtrat') !== false || stripos($progName, 'pompe') !== false;
+            $iconOn  = $isFilt ? 'fa-fan'         : 'fa-sun';
+            $iconOff = $isFilt ? 'fa-stop-circle' : 'fa-moon';
 
-            // Détection du type de programme pour l'icône
-            $isFilt = (stripos($progName, 'filtrat') !== false || stripos($progName, 'pompe') !== false);
-            $isLight = (stripos($progName, 'éclairag') !== false || stripos($progName, 'lumièr') !== false
-                     || stripos($progName, 'lumier') !== false || stripos($progName, 'lampe') !== false);
-            $iconOn  = $isFilt ? 'fa-fan' : ($isLight ? 'fa-sun' : 'fa-play-circle');
-            $iconOff = $isFilt ? 'fa-stop-circle' : ($isLight ? 'fa-moon' : 'fa-stop-circle');
+            $modeKey = '';
+            if ($sec['mode_cmd']) {
+                $modeKey = strtolower($sec['mode_cmd']->execCmd() ?? '');
+            }
 
-            // Sous-label de l'état courant (pour filtration : running status)
-            $onSublabel  = ($isFilt && $filt !== null) ? ($filt ? 'ACTIF' : 'ARRÊTÉ') : '';
-            $offSublabel = ($isFilt && $filt !== null && !$filt) ? 'ARRÊTÉ' : '';
+            $onSublabel = ($isFilt && $filt !== null) ? ($filt ? 'ACTIF' : 'ARRÊTÉ') : '';
 
             $h .= '<div style="' . $S_SEC . '">';
-            $h .= '<div style="' . $S_STTL . '">' . htmlspecialchars($progName) . '</div>';
+            $h .= '<div style="' . $S_STTL . '">' . htmlspecialchars(strtoupper($progName)) . '</div>';
             $h .= '<div style="' . $S_ROW . '">';
 
-            $cmdAuto = $this->getCmd('action', $prefix . '_set_auto');
-            $cmdOn   = $this->getCmd('action', $prefix . '_set_on');
-            $cmdOff  = $this->getCmd('action', $prefix . '_set_off');
-
-            // Bouton AUTO (bleu)
-            if ($cmdAuto) {
-                $h .= $btn($cmdAuto->getId(), 'fa-clock', 'AUTO', '',
+            // AUTO uniquement pour la filtration
+            if ($isFilt && isset($sec['cmds']['set_auto'])) {
+                $h .= $btn($sec['cmds']['set_auto']->getId(), 'fa-clock', 'AUTO', '',
                     $modeKey === 'auto',
                     'background:linear-gradient(145deg,#0d2d6b,#1565c0);',
                     'border:1px solid #1e88e5;',
@@ -155,9 +166,8 @@ class myindygojeedom extends eqLogic {
                 );
             }
 
-            // Bouton ON (vert)
-            if ($cmdOn) {
-                $h .= $btn($cmdOn->getId(), $iconOn, 'ON', $onSublabel,
+            if (isset($sec['cmds']['set_on'])) {
+                $h .= $btn($sec['cmds']['set_on']->getId(), $iconOn, 'ON', $onSublabel,
                     $modeKey === 'on',
                     'background:linear-gradient(145deg,#0a3d1a,#1b5e20);',
                     'border:1px solid #2e7d32;',
@@ -165,9 +175,8 @@ class myindygojeedom extends eqLogic {
                 );
             }
 
-            // Bouton OFF (rouge)
-            if ($cmdOff) {
-                $h .= $btn($cmdOff->getId(), $iconOff, 'OFF', $offSublabel,
+            if (isset($sec['cmds']['set_off'])) {
+                $h .= $btn($sec['cmds']['set_off']->getId(), $iconOff, 'OFF', '',
                     $modeKey === 'off',
                     'background:linear-gradient(145deg,#4a0909,#b71c1c);',
                     'border:1px solid #c62828;',
