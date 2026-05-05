@@ -85,7 +85,7 @@ class myindygojeedom extends eqLogic {
             $ic     = $active ? $activeIconColor  : 'color:#2e3d55;';
             $lc     = $active ? $activeLabelColor : 'color:#2e3d55;';
             $sc     = $active ? 'color:#a0c0e0;'  : 'color:#1e2d40;';
-            $h  = '<a class="cmd action" data-id="' . $cmdId . '"';
+            $h  = '<a class="cmd action" data-id="' . $cmdId . '" data-action="other"';
             $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
             $h .= 'padding:9px 4px;border-radius:10px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $border . '">';
             $h .= '<i class="fas ' . $icon . '" style="font-size:20px;' . $ic . '"></i>';
