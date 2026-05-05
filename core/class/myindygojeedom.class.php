@@ -69,14 +69,15 @@ class myindygojeedom extends eqLogic {
         $S_LBL  = 'color:#5a6a80;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;';
         $S_ROW  = 'display:flex;gap:6px;';
 
-        // indygoSetMode() gère l'appel AJAX + le basculement visuel du bouton actif
-        $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_) {
+        // indygoSetMode() gère l'appel AJAX + le basculement visuel du bouton actif + badge filtration
+        $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_, $mode = '') {
             $styleBase = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;';
             $styleOn   = $styleBase . $grad . $bord;
             $styleOff  = $styleBase . 'background:#1e2433;border:1px solid #252d3d;';
             $id = intval($cmdId);
             $h  = '<a onclick="indygoSetMode(' . $id . ',this);return false;"';
             $h .= ' data-ind-btn="1"';
+            $h .= ' data-ind-mode="' . $mode . '"';
             $h .= ' data-style-on="' . $styleOn . '"';
             $h .= ' data-style-off="' . $styleOff . '"';
             $h .= ' data-ic-on="' . $ic_ . '"';
@@ -100,6 +101,12 @@ class myindygojeedom extends eqLogic {
         $h .= 'el.setAttribute(\'style\',$el.data(\'style-on\'));';
         $h .= '$el.find(\'i\').attr(\'style\',\'font-size:17px;\'+$el.data(\'ic-on\'));';
         $h .= '$el.find(\'span\').attr(\'style\',\'font-size:11px;font-weight:800;\'+$el.data(\'lc-on\'));';
+        $h .= 'if($sec.data(\'ind-filt\')){';
+        $h .= 'var mode=$el.data(\'ind-mode\');';
+        $h .= 'var $b=$el.closest(\'[data-eqLogic_id]\').find(\'[data-ind-filt-badge]\');';
+        $h .= 'if(mode===\'off\'){$b.css(\'color\',\'#ef9a9a\').html(\'<i class="fas fa-stop-circle"></i> ARRÊTÉE\');}';
+        $h .= 'else{$b.css(\'color\',\'#69f0ae\').html(\'<i class="fas fa-fan"></i> EN MARCHE\');}';
+        $h .= '}';
         $h .= '};}</script>';
 
         // Conteneur
@@ -125,7 +132,7 @@ class myindygojeedom extends eqLogic {
             $fc = $filt ? '#69f0ae' : '#ef9a9a';
             $fi = $filt ? 'fa-fan'  : 'fa-stop-circle';
             $fl = $filt ? 'EN MARCHE' : 'ARRÊTÉE';
-            $h .= '<span style="margin-left:auto;display:flex;align-items:center;gap:5px;';
+            $h .= '<span data-ind-filt-badge style="margin-left:auto;display:flex;align-items:center;gap:5px;';
             $h .= 'color:' . $fc . ';font-size:9px;font-weight:700;letter-spacing:1px;">';
             $h .= '<i class="fas ' . $fi . '"></i> ' . $fl . '</span>';
         }
@@ -168,7 +175,8 @@ class myindygojeedom extends eqLogic {
             $iconOff = $isFilt ? 'fa-stop-circle' : 'fa-moon';
             $modeKey = $sec['mode_cmd'] ? strtolower($sec['mode_cmd']->execCmd() ?? '') : '';
 
-            $h .= '<div data-ind-sec="' . htmlspecialchars($prefix) . '" style="' . $S_SEC . '">';
+            $filtAttr = $isFilt ? ' data-ind-filt="1"' : '';
+            $h .= '<div data-ind-sec="' . htmlspecialchars($prefix) . '"' . $filtAttr . ' style="' . $S_SEC . '">';
             $h .= '<div style="' . $S_LBL . '">' . htmlspecialchars(strtoupper($progName)) . '</div>';
             $h .= '<div style="' . $S_ROW . '">';
 
@@ -176,19 +184,19 @@ class myindygojeedom extends eqLogic {
                 $h .= $btn($sec['cmds']['set_auto']->getId(), 'fa-clock', 'AUTO',
                     $modeKey === 'auto',
                     'background:linear-gradient(145deg,#0d2d6b,#1565c0);', 'border:1px solid #1e88e5;',
-                    'color:#64b5f6;', 'color:#e3f2fd;');
+                    'color:#64b5f6;', 'color:#e3f2fd;', 'auto');
             }
             if (isset($sec['cmds']['set_on'])) {
                 $h .= $btn($sec['cmds']['set_on']->getId(), $iconOn, 'ON',
                     $modeKey === 'on',
                     'background:linear-gradient(145deg,#0a3d1a,#1b5e20);', 'border:1px solid #2e7d32;',
-                    'color:#69f0ae;', 'color:#e8f5e9;');
+                    'color:#69f0ae;', 'color:#e8f5e9;', 'on');
             }
             if (isset($sec['cmds']['set_off'])) {
                 $h .= $btn($sec['cmds']['set_off']->getId(), $iconOff, 'OFF',
                     $modeKey === 'off',
                     'background:linear-gradient(145deg,#4a0909,#b71c1c);', 'border:1px solid #c62828;',
-                    'color:#ef9a9a;', 'color:#ffebee;');
+                    'color:#ef9a9a;', 'color:#ffebee;', 'off');
             }
             $h .= '</div></div>';
         }
