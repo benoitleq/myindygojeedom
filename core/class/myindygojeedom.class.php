@@ -13,7 +13,7 @@ class myindygojeedom extends eqLogic {
     const BASE_URL              = 'https://myindygo.com';
     const OAUTH2_CLIENT_ID      = '5d1c5bb0b4acd1c748988085';
     const OAUTH2_CLIENT_SECRET  = 'LUowRAajRhZb6NZYqVCFkaLC';
-    const TOKEN_EXPIRY_MARGIN   = 300;   // secondes avant expiration pour renouveler
+    const TOKEN_EXPIRY_MARGIN   = 300;
     const HTTP_TIMEOUT          = 15;
     const API_ACCEPT            = 'version=2.7';
 
@@ -47,74 +47,75 @@ class myindygojeedom extends eqLogic {
 
     // ─── Appelé après chaque sauvegarde dans l'UI ─────────────────────
     public function postSave() {
-        // Ne pas appeler pull() au postSave : les identifiants viennent d'être sauvegardés
-        // mais l'utilisateur doit valider avec "Tester la connexion" ou "Synchroniser".
+        // Ne pas appeler pull() au postSave
     }
 
     // ─── Widget dashboard ────────────────────────────────────────────
     public function toHtml($_version = 'dashboard') {
-        // Pas de cache : on relit toujours les valeurs courantes des commandes
-        // pour que l'état actif (AUTO/ON/OFF) soit toujours à jour.
         if (!$this->getIsEnable()) {
             return '';
         }
 
         $cmdTemp = $this->getCmd('info', 'temperature');
         $cmdFilt = $this->getCmd('info', 'filtration_running');
+        $temp    = ($cmdTemp) ? $cmdTemp->execCmd() : null;
+        $filt    = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
+        $tempStr = ($temp !== null && $temp !== '') ? number_format(floatval($temp), 1) . ' °C' : '— °C';
 
-        $temp = ($cmdTemp) ? $cmdTemp->execCmd() : null;
-        $filt = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
-        $tempDisplay = ($temp !== null && $temp !== '')
-            ? number_format(floatval($temp), 1) . ' °C' : '— °C';
+        $S_CARD = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);';
+        $S_HDR  = 'padding:9px 14px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;align-items:center;gap:8px;border-radius:14px 14px 0 0;';
+        $S_INFO = 'padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e2433;background:#111620;';
+        $S_SEC  = 'padding:8px 12px;border-top:1px solid #1e2433;';
+        $S_LBL  = 'color:#5a6a80;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;';
+        $S_ROW  = 'display:flex;gap:6px;';
 
-        // ── Styles helpers ──────────────────────────────────────────
-        // overflow:visible sur le card pour que les sections ne soient pas coupées
-        $S_CARD   = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5);';
-        $S_HDR    = 'padding:10px 16px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e3a5f;border-radius:14px 14px 0 0;';
-        $S_TITLE  = 'color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;';
-        $S_TEMP   = 'color:#60b4ff;font-size:18px;font-weight:800;';
-        $S_SEC    = 'padding:10px 14px;border-top:1px solid #1e2433;';
-        $S_STTL   = 'color:#5a6a80;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;';
-        $S_ROW    = 'display:flex;gap:8px;';
-
-        // ── Bouton helper ────────────────────────────────────────────
-        // Retourne le HTML d'un bouton de mode (Auto/On/Off)
-        $btn = function($cmdId, $icon, $label, $sublabel, $active, $activeGrad, $activeBorder, $activeIconColor, $activeLabelColor) {
-            $bg     = $active ? $activeGrad  : 'background:#1e2433;';
-            $border = $active ? $activeBorder : 'border:1px solid #252d3d;';
-            $ic     = $active ? $activeIconColor  : 'color:#2e3d55;';
-            $lc     = $active ? $activeLabelColor : 'color:#2e3d55;';
-            $sc     = $active ? 'color:#a0c0e0;'  : 'color:#1e2d40;';
-            $h  = '<a class="cmd action" data-id="' . $cmdId . '" data-action="other"';
+        // onclick direct sur jeedom.cmd.execute pour fiabilité maximale
+        $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_) {
+            $bg = $active ? $grad         : 'background:#1e2433;';
+            $br = $active ? $bord         : 'border:1px solid #252d3d;';
+            $ic = $active ? $ic_          : 'color:#2e3d55;';
+            $lc = $active ? $lc_          : 'color:#2e3d55;';
+            $id = intval($cmdId);
+            $h  = '<a onclick="jeedom.cmd.execute({id:' . $id . '});return false;"';
+            $h .= ' class="cmd action" data-id="' . $id . '" data-action="other"';
             $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-            $h .= 'padding:9px 4px;border-radius:10px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $border . '">';
-            $h .= '<i class="fas ' . $icon . '" style="font-size:20px;' . $ic . '"></i>';
-            $h .= '<span style="font-size:12px;font-weight:800;letter-spacing:.5px;' . $lc . '">' . $label . '</span>';
-            if ($sublabel !== '') {
-                $h .= '<span style="font-size:9px;letter-spacing:.5px;' . $sc . '">' . $sublabel . '</span>';
-            }
+            $h .= 'padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $br . '">';
+            $h .= '<i class="fas ' . $icon . '" style="font-size:17px;' . $ic . '"></i>';
+            $h .= '<span style="font-size:11px;font-weight:800;' . $lc . '">' . $label . '</span>';
             $h .= '</a>';
             return $h;
         };
 
-        // ── Conteneur ────────────────────────────────────────────────
+        // Conteneur
         $h  = '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
         $h .= ' data-eqLogic_id="' . $this->getId() . '" style="' . $S_CARD . '">';
 
-        // ── En-tête ──────────────────────────────────────────────────
+        // En-tête : nom uniquement
         $h .= '<div style="' . $S_HDR . '">';
-        $h .= '<div style="' . $S_TITLE . '"><i class="fas fa-swimming-pool" style="margin-right:7px;opacity:.8;"></i>' . htmlspecialchars($this->getName()) . '</div>';
-        $h .= '<div style="' . $S_TEMP . 'display:flex;align-items:center;gap:5px;">';
-        $h .= '<i class="fas fa-thermometer-half" style="color:#ff7043;font-size:14px;"></i>';
-        if ($cmdTemp) {
-            $h .= '<span class="cmd" data-id="' . $cmdTemp->getId() . '">' . $tempDisplay . '</span>';
-        } else {
-            $h .= $tempDisplay;
-        }
-        $h .= '</div></div>';
+        $h .= '<i class="fas fa-swimming-pool" style="color:#60b4ff;font-size:15px;"></i>';
+        $h .= '<span style="color:#fff;font-size:13px;font-weight:700;">' . htmlspecialchars($this->getName()) . '</span>';
+        $h .= '</div>';
 
-        // ── Sections programmes (construites depuis les cmds action) ────
-        // Regrouper les commandes action par préfixe prog_X
+        // Ligne info : température + état filtration
+        $h .= '<div style="' . $S_INFO . '">';
+        $h .= '<i class="fas fa-thermometer-half" style="color:#ff7043;font-size:22px;"></i>';
+        if ($cmdTemp) {
+            $h .= '<span class="cmd" data-id="' . $cmdTemp->getId() . '"';
+            $h .= ' style="color:#60b4ff;font-size:26px;font-weight:800;line-height:1;">' . $tempStr . '</span>';
+        } else {
+            $h .= '<span style="color:#60b4ff;font-size:26px;font-weight:800;">' . $tempStr . '</span>';
+        }
+        if ($filt !== null) {
+            $fc = $filt ? '#69f0ae' : '#ef9a9a';
+            $fi = $filt ? 'fa-fan'  : 'fa-stop-circle';
+            $fl = $filt ? 'EN MARCHE' : 'ARRÊTÉE';
+            $h .= '<span style="margin-left:auto;display:flex;align-items:center;gap:5px;';
+            $h .= 'color:' . $fc . ';font-size:9px;font-weight:700;letter-spacing:1px;">';
+            $h .= '<i class="fas ' . $fi . '"></i> ' . $fl . '</span>';
+        }
+        $h .= '</div>';
+
+        // Sections programmes (construites depuis les cmds action)
         $sections = [];
         foreach ($this->getCmd() as $cmd) {
             if ($cmd->getType() !== 'action') continue;
@@ -123,78 +124,56 @@ class myindygojeedom extends eqLogic {
             $prefix = $m[1];
             $verb   = $m[2];
             if (!isset($sections[$prefix])) {
-                $sections[$prefix] = ['cmds' => [], 'mode_cmd' => null, 'name' => ''];
+                $sections[$prefix] = ['cmds' => [], 'mode_cmd' => null, 'name' => '', 'is_filt' => false];
             }
             $sections[$prefix]['cmds'][$verb] = $cmd;
             if (empty($sections[$prefix]['name'])) {
-                // Extraire le nom du programme depuis le nom de la commande (ex: "Filtration → Auto" → "Filtration")
                 $rawName = preg_replace('/ ?→.+$/u', '', $cmd->getName());
                 $sections[$prefix]['name'] = trim($rawName);
             }
         }
-        // Attacher la commande info mode (si elle existe)
         foreach ($sections as $prefix => &$sec) {
             $sec['mode_cmd'] = $this->getCmd('info', $prefix . '_mode');
             $sec['is_filt']  = stripos($sec['name'], 'filtrat') !== false || stripos($sec['name'], 'pompe') !== false;
         }
         unset($sec);
-
-        // Filtration en premier
         uasort($sections, function($a, $b) { return (int)$b['is_filt'] - (int)$a['is_filt']; });
 
         foreach ($sections as $prefix => $sec) {
             $progName = $sec['name'];
             if (strlen($progName) < 2) continue;
-
             $isFilt  = $sec['is_filt'];
             $iconOn  = $isFilt ? 'fa-fan'         : 'fa-sun';
             $iconOff = $isFilt ? 'fa-stop-circle' : 'fa-moon';
-
-            $modeKey = '';
-            if ($sec['mode_cmd']) {
-                $modeKey = strtolower($sec['mode_cmd']->execCmd() ?? '');
-            }
-
-            $onSublabel = ($isFilt && $filt !== null) ? ($filt ? 'ACTIF' : 'ARRÊTÉ') : '';
+            $modeKey = $sec['mode_cmd'] ? strtolower($sec['mode_cmd']->execCmd() ?? '') : '';
 
             $h .= '<div style="' . $S_SEC . '">';
-            $h .= '<div style="' . $S_STTL . '">' . htmlspecialchars(strtoupper($progName)) . '</div>';
+            $h .= '<div style="' . $S_LBL . '">' . htmlspecialchars(strtoupper($progName)) . '</div>';
             $h .= '<div style="' . $S_ROW . '">';
 
-            // AUTO uniquement pour la filtration
             if ($isFilt && isset($sec['cmds']['set_auto'])) {
-                $h .= $btn($sec['cmds']['set_auto']->getId(), 'fa-clock', 'AUTO', '',
+                $h .= $btn($sec['cmds']['set_auto']->getId(), 'fa-clock', 'AUTO',
                     $modeKey === 'auto',
-                    'background:linear-gradient(145deg,#0d2d6b,#1565c0);',
-                    'border:1px solid #1e88e5;',
-                    'color:#64b5f6;', 'color:#e3f2fd;'
-                );
+                    'background:linear-gradient(145deg,#0d2d6b,#1565c0);', 'border:1px solid #1e88e5;',
+                    'color:#64b5f6;', 'color:#e3f2fd;');
             }
-
             if (isset($sec['cmds']['set_on'])) {
-                $h .= $btn($sec['cmds']['set_on']->getId(), $iconOn, 'ON', $onSublabel,
+                $h .= $btn($sec['cmds']['set_on']->getId(), $iconOn, 'ON',
                     $modeKey === 'on',
-                    'background:linear-gradient(145deg,#0a3d1a,#1b5e20);',
-                    'border:1px solid #2e7d32;',
-                    'color:#69f0ae;', 'color:#e8f5e9;'
-                );
+                    'background:linear-gradient(145deg,#0a3d1a,#1b5e20);', 'border:1px solid #2e7d32;',
+                    'color:#69f0ae;', 'color:#e8f5e9;');
             }
-
             if (isset($sec['cmds']['set_off'])) {
-                $h .= $btn($sec['cmds']['set_off']->getId(), $iconOff, 'OFF', '',
+                $h .= $btn($sec['cmds']['set_off']->getId(), $iconOff, 'OFF',
                     $modeKey === 'off',
-                    'background:linear-gradient(145deg,#4a0909,#b71c1c);',
-                    'border:1px solid #c62828;',
-                    'color:#ef9a9a;', 'color:#ffebee;'
-                );
+                    'background:linear-gradient(145deg,#4a0909,#b71c1c);', 'border:1px solid #c62828;',
+                    'color:#ef9a9a;', 'color:#ffebee;');
             }
-
             $h .= '</div></div>';
         }
 
         $h .= '<div class="eqLogicAlert alert" style="display:none;"></div>';
         $h .= '</div>';
-
         return $h;
     }
 
@@ -202,10 +181,9 @@ class myindygojeedom extends eqLogic {
     public function pull() {
         $this->ensureToken();
 
-        // 0. Nettoyage des commandes avec des logicalId obsolètes (anciennes versions du plugin)
+        // 0. Nettoyage des commandes avec des logicalId obsolètes
         foreach ($this->getCmd() as $cmd) {
             $logId = $cmd->getLogicalId();
-            // prog__* = program_id vide (ancienne version avec null program_id)
             if (strpos($logId, 'prog__') === 0) {
                 log::add('myindygojeedom', 'info', '[pull] suppression cmd prog__ vide logicalId=' . $logId);
                 $cmd->remove();
@@ -228,7 +206,7 @@ class myindygojeedom extends eqLogic {
         list($poolAddress, $deviceShortId) = $this->resolveHardwareIds($modules);
         $this->setConfiguration('pool_address', $poolAddress);
         $this->setConfiguration('device_short_id', $deviceShortId);
-        $this->save(true); // true = pas de postSave récursif
+        $this->save(true);
 
         // 3. Programmes de chaque module
         foreach ($modules as &$mod) {
@@ -246,9 +224,9 @@ class myindygojeedom extends eqLogic {
         $status = $this->fetchStatus($poolAddress, $deviceShortId);
 
         // 5. Extraction
-        $temperature      = $this->extractTemperature($status);
-        $filtRunning      = $this->extractFiltrationState($status);
-        $programs         = $this->extractPrograms($modules);
+        $temperature = $this->extractTemperature($status);
+        $filtRunning = $this->extractFiltrationState($status);
+        $programs    = $this->extractPrograms($modules);
 
         // 6. Mise à jour des commandes info
         $this->updateTemperatureCmd($temperature);
@@ -269,17 +247,14 @@ class myindygojeedom extends eqLogic {
             $this->updateProgramCmds($prog);
         }
 
-        log::add(
-            'myindygojeedom', 'info',
-            '[pull] OK — temp=' . $temperature . '°C, ' . count($seenProgIds) . ' programme(s)'
-        );
+        log::add('myindygojeedom', 'info',
+            '[pull] OK — temp=' . $temperature . '°C, ' . count($seenProgIds) . ' programme(s)');
     }
 
     // ─── OAuth2 ──────────────────────────────────────────────────────
     private function ensureToken() {
         $token  = $this->getConfiguration('access_token', '');
         $expiry = (float) $this->getConfiguration('token_expiry', 0);
-
         if (empty($token) || time() > ($expiry - self::TOKEN_EXPIRY_MARGIN)) {
             $this->login();
         }
@@ -288,28 +263,22 @@ class myindygojeedom extends eqLogic {
     private function login() {
         $email    = $this->getConfiguration('email', '');
         $password = $this->getConfiguration('password', '');
-
         if (empty($email) || empty($password)) {
             throw new Exception('Email et mot de passe non configurés dans l\'équipement.');
         }
-
         $basic = base64_encode(self::OAUTH2_CLIENT_ID . ':' . self::OAUTH2_CLIENT_SECRET);
-
-        $resp = $this->httpRequest('POST', '/oauth2/token',
+        $resp  = $this->httpRequest('POST', '/oauth2/token',
             ['grant_type' => 'password', 'username' => $email, 'password' => $password, 'scope' => '*'],
             ['Authorization: Basic ' . $basic, 'Content-Type: application/x-www-form-urlencoded'],
             true
         );
-
         if (empty($resp['access_token'])) {
             throw new Exception('Authentification échouée : pas d\'access_token dans la réponse.');
         }
-
         $tokenType = $resp['token_type'] ?? 'Bearer';
         $this->setConfiguration('access_token', $tokenType . ' ' . $resp['access_token']);
         $this->setConfiguration('token_expiry', time() + ($resp['expires_in'] ?? 3600));
         $this->save(true);
-
         log::add('myindygojeedom', 'debug', '[login] OAuth2 OK — token valide ' . ($resp['expires_in'] ?? 3600) . 's');
     }
 
@@ -337,12 +306,10 @@ class myindygojeedom extends eqLogic {
     private function resolveHardwareIds($modules) {
         $gateway = null;
         $lrPc    = null;
-
         foreach ($modules as $m) {
             if (($m['type'] ?? '') === 'lr-mb-10') $gateway = $m;
             if (($m['type'] ?? '') === 'lr-pc')    $lrPc    = $m;
         }
-
         if ($lrPc !== null) {
             $gw          = $gateway ?? $lrPc;
             $poolAddress = $gw['serialNumber'] ?? '';
@@ -352,13 +319,11 @@ class myindygojeedom extends eqLogic {
                 : substr($lrPc['serialNumber'] ?? '', -6);
             return [$poolAddress, $deviceId];
         }
-
         foreach ($modules as $m) {
             if (($m['type'] ?? '') === 'ipx') {
                 return [$m['serialNumber'] ?? '', $m['ipxRelay'] ?? ''];
             }
         }
-
         $types = implode(', ', array_column($modules, 'type'));
         throw new Exception('Impossible de déterminer les IDs hardware (types trouvés : ' . $types . ')');
     }
@@ -386,8 +351,8 @@ class myindygojeedom extends eqLogic {
     private function extractPrograms($modules) {
         $out = [];
         foreach ($modules as $mod) {
-            $modId   = (string)($mod['id'] ?? '');
-            $modName = $mod['name'] ?? ('Module ' . $modId);
+            $modId    = (string)($mod['id'] ?? '');
+            $modName  = $mod['name'] ?? ('Module ' . $modId);
             $progList = $mod['programs'] ?? [];
             log::add('myindygojeedom', 'debug', '[extractPrograms] module=' . $modName . ' (' . $modId . ') — ' . count($progList) . ' programme(s)');
             foreach ($progList as $prog) {
@@ -408,8 +373,8 @@ class myindygojeedom extends eqLogic {
                     ? (string)$rawProgId
                     : ('ftype' . $ptype . '_mod' . $modId);
 
-                $progName  = (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype);
-                $modeRaw   = $pc['mode'] ?? null;
+                $progName = (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype);
+                $modeRaw  = $pc['mode'] ?? null;
                 log::add('myindygojeedom', 'debug', '[extractPrograms] prog=' . $progName . ' type=' . $ptype . ' id=' . $progId . ' mode=' . json_encode($modeRaw));
 
                 $out[] = [
@@ -470,7 +435,7 @@ class myindygojeedom extends eqLogic {
         $progName = $prog['program_name'];
         $mode     = $prog['current_mode'];
 
-        // Commande info : mode courant — toujours mettre à jour le nom
+        // Commande info mode — toujours mettre à jour le nom
         $logicalId = 'prog_' . $progId . '_mode';
         $cmdMode   = $this->getCmd('info', $logicalId);
         if (!is_object($cmdMode)) {
@@ -509,7 +474,6 @@ class myindygojeedom extends eqLogic {
         if (!in_array($mode, [self::MODE_OFF, self::MODE_ON, self::MODE_AUTO], true)) {
             throw new Exception('Mode invalide : ' . $mode . ' (attendu 0, 1 ou 2)');
         }
-
         $this->ensureToken();
 
         $programs = $this->fetchModulePrograms($moduleId);
@@ -527,14 +491,11 @@ class myindygojeedom extends eqLogic {
 
         $targetType = $target['programCharacteristics']['programType'] ?? null;
 
-        // Construire la liste complète avec le nouveau mode pour la cible,
-        // mode=null pour les autres types (protocole FunFR — ne pas corrompre la config)
         $updated = [];
         foreach ($programs as $prog) {
             $copy              = $prog;
             $copy['dataChanged'] = true;
             $progType          = $copy['programCharacteristics']['programType'] ?? null;
-
             if ($prog['id'] == $programId) {
                 $copy['programCharacteristics']['mode'] = $mode;
             } elseif ($progType !== $targetType) {
@@ -553,7 +514,7 @@ class myindygojeedom extends eqLogic {
             ['module' => $moduleId, 'programs' => $updated]
         );
 
-        // 2. Push vers le device (cloud → gateway → LoRa)
+        // 2. Push vers le device
         if ($poolAddress && $deviceShortId) {
             $this->apiRequest(
                 'POST',
@@ -564,13 +525,13 @@ class myindygojeedom extends eqLogic {
 
         // 3. Rapports (non bloquants)
         try {
-            $this->apiRequest('POST', '/api/reportModuleDatasSent',    ['module' => $moduleId]);
-            $this->apiRequest('POST', '/api/reportProgramsDatasSent',  ['module' => $moduleId, 'programs' => $updated]);
+            $this->apiRequest('POST', '/api/reportModuleDatasSent',   ['module' => $moduleId]);
+            $this->apiRequest('POST', '/api/reportProgramsDatasSent', ['module' => $moduleId, 'programs' => $updated]);
         } catch (Exception $e) {
             log::add('myindygojeedom', 'warning', '[setProgramMode] report non-bloquant : ' . $e->getMessage());
         }
 
-        // 4. Sync LoRaWAN (tentative — non bloquant si non applicable)
+        // 4. Sync LoRaWAN (non bloquant)
         try {
             $this->apiRequest('POST', '/modules/sendDataViaLoRaWAN',
                 ['moduleId' => $moduleId, 'sendProgram' => true, 'sendCommand' => true]
@@ -581,8 +542,7 @@ class myindygojeedom extends eqLogic {
 
         $modeName = self::MODE_NAMES[$mode] ?? $mode;
         log::add('myindygojeedom', 'info',
-            '[setProgramMode] OK — module=' . $moduleId . ' prog=' . $programId . ' → ' . $modeName
-        );
+            '[setProgramMode] OK — module=' . $moduleId . ' prog=' . $programId . ' → ' . $modeName);
     }
 
     // ─── HTTP helpers ─────────────────────────────────────────────────
@@ -595,7 +555,6 @@ class myindygojeedom extends eqLogic {
             'User-Agent: jeedom-myindygo/1.0',
         ], $extra);
 
-        // Re-auth automatique sur 401
         try {
             return $this->httpRequest($method, $path, $body, $headers);
         } catch (Exception $e) {
@@ -665,9 +624,6 @@ class myindygojeedomCmd extends cmd {
         }
 
         $eqLogic->setProgramMode($moduleId, $programId, $mode);
-
-        // Rafraîchissement rapide pour mettre à jour l'état dans Jeedom
-        // (le device LoRa peut prendre 10-30s, mais le cloud est mis à jour immédiatement)
         $eqLogic->pull();
     }
 }
