@@ -69,15 +69,15 @@ class myindygojeedom extends eqLogic {
         $S_LBL  = 'color:#5a6a80;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;';
         $S_ROW  = 'display:flex;gap:6px;';
 
-        // onclick direct sur jeedom.cmd.execute pour fiabilité maximale
+        // $.post direct vers cmd.ajax.php — pas de class "cmd action" pour éviter l'interception Jeedom
         $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_) {
-            $bg = $active ? $grad         : 'background:#1e2433;';
-            $br = $active ? $bord         : 'border:1px solid #252d3d;';
-            $ic = $active ? $ic_          : 'color:#2e3d55;';
-            $lc = $active ? $lc_          : 'color:#2e3d55;';
+            $bg = $active ? $grad : 'background:#1e2433;';
+            $br = $active ? $bord : 'border:1px solid #252d3d;';
+            $ic = $active ? $ic_  : 'color:#2e3d55;';
+            $lc = $active ? $lc_  : 'color:#2e3d55;';
             $id = intval($cmdId);
-            $h  = '<a onclick="jeedom.cmd.execute({id:' . $id . '});return false;"';
-            $h .= ' class="cmd action" data-id="' . $id . '" data-action="other"';
+            $oc = "$.post('core/ajax/cmd.ajax.php',{action:'execCmd',id:" . $id . ",options:'{}'},null,'json');return false;";
+            $h  = '<a onclick="' . $oc . '"';
             $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
             $h .= 'padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $br . '">';
             $h .= '<i class="fas ' . $icon . '" style="font-size:17px;' . $ic . '"></i>';
