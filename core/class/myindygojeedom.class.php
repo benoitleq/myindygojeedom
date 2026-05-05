@@ -62,26 +62,28 @@ class myindygojeedom extends eqLogic {
         $filt    = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
         $tempStr = ($temp !== null && $temp !== '') ? number_format(floatval($temp), 1) . ' °C' : '— °C';
 
-        $S_CARD = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);';
+        $S_CARD = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);width:300px;';
         $S_HDR  = 'padding:9px 14px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;align-items:center;gap:8px;border-radius:14px 14px 0 0;';
         $S_INFO = 'padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e2433;background:#111620;';
         $S_SEC  = 'padding:8px 12px;border-top:1px solid #1e2433;';
         $S_LBL  = 'color:#5a6a80;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;';
         $S_ROW  = 'display:flex;gap:6px;';
 
-        // $.post direct vers cmd.ajax.php — pas de class "cmd action" pour éviter l'interception Jeedom
+        // indygoSetMode() gère l'appel AJAX + le basculement visuel du bouton actif
         $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_) {
-            $bg = $active ? $grad : 'background:#1e2433;';
-            $br = $active ? $bord : 'border:1px solid #252d3d;';
-            $ic = $active ? $ic_  : 'color:#2e3d55;';
-            $lc = $active ? $lc_  : 'color:#2e3d55;';
+            $styleBase = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;';
+            $styleOn   = $styleBase . $grad . $bord;
+            $styleOff  = $styleBase . 'background:#1e2433;border:1px solid #252d3d;';
             $id = intval($cmdId);
-            $oc = "$.post('core/ajax/cmd.ajax.php',{action:'execCmd',id:" . $id . ",options:'{}'},null,'json');return false;";
-            $h  = '<a onclick="' . $oc . '"';
-            $h .= ' style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-            $h .= 'padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;' . $bg . $br . '">';
-            $h .= '<i class="fas ' . $icon . '" style="font-size:17px;' . $ic . '"></i>';
-            $h .= '<span style="font-size:11px;font-weight:800;' . $lc . '">' . $label . '</span>';
+            $h  = '<a onclick="indygoSetMode(' . $id . ',this);return false;"';
+            $h .= ' data-ind-btn="1"';
+            $h .= ' data-style-on="' . $styleOn . '"';
+            $h .= ' data-style-off="' . $styleOff . '"';
+            $h .= ' data-ic-on="' . $ic_ . '"';
+            $h .= ' data-lc-on="' . $lc_ . '"';
+            $h .= ' style="' . ($active ? $styleOn : $styleOff) . '">';
+            $h .= '<i class="fas ' . $icon . '" style="font-size:17px;' . ($active ? $ic_ : 'color:#2e3d55;') . '"></i>';
+            $h .= '<span style="font-size:11px;font-weight:800;' . ($active ? $lc_ : 'color:#2e3d55;') . '">' . $label . '</span>';
             $h .= '</a>';
             return $h;
         };
@@ -147,7 +149,7 @@ class myindygojeedom extends eqLogic {
             $iconOff = $isFilt ? 'fa-stop-circle' : 'fa-moon';
             $modeKey = $sec['mode_cmd'] ? strtolower($sec['mode_cmd']->execCmd() ?? '') : '';
 
-            $h .= '<div style="' . $S_SEC . '">';
+            $h .= '<div data-ind-sec="' . htmlspecialchars($prefix) . '" style="' . $S_SEC . '">';
             $h .= '<div style="' . $S_LBL . '">' . htmlspecialchars(strtoupper($progName)) . '</div>';
             $h .= '<div style="' . $S_ROW . '">';
 

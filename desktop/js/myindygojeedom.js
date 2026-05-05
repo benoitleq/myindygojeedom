@@ -52,6 +52,21 @@ function addCmdToTable(_cmd) {
     jeedom.cmd.changeType(newRow, init(_cmd.subType));
 }
 
+/* Exécuter une commande de mode et basculer l'état visuel du bouton actif */
+function indygoSetMode(id, el) {
+    $.post('core/ajax/cmd.ajax.php', {action: 'execCmd', id: id, options: '{}'}, null, 'json');
+    var $el  = $(el);
+    var $sec = $el.closest('[data-ind-sec]');
+    $sec.find('[data-ind-btn]').each(function () {
+        this.setAttribute('style', $(this).data('style-off'));
+        $(this).find('i').attr('style', 'font-size:17px;color:#2e3d55;');
+        $(this).find('span').attr('style', 'font-size:11px;font-weight:800;color:#2e3d55;');
+    });
+    el.setAttribute('style', $el.data('style-on'));
+    $el.find('i').attr('style', 'font-size:17px;' + $el.data('ic-on'));
+    $el.find('span').attr('style', 'font-size:11px;font-weight:800;' + $el.data('lc-on'));
+}
+
 /* Tester la connexion */
 $(document).on('click', '#bt_testIndygo', function () {
     var id = $('.eqLogicAttr[data-l1key="id"]').val();
