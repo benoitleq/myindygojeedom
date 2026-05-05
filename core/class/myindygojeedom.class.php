@@ -88,8 +88,22 @@ class myindygojeedom extends eqLogic {
             return $h;
         };
 
+        // Fonction JS embarquée dans le widget (dashboard ne charge pas myindygojeedom.js)
+        $h  = '<script>if(!window.indygoSetMode){window.indygoSetMode=function(id,el){';
+        $h .= '$.post(\'core/ajax/cmd.ajax.php\',{action:\'execCmd\',id:id,options:\'{}\'},null,\'json\');';
+        $h .= 'var $el=$(el);var $sec=$el.closest(\'[data-ind-sec]\');';
+        $h .= '$sec.find(\'[data-ind-btn]\').each(function(){';
+        $h .= 'this.setAttribute(\'style\',$(this).data(\'style-off\'));';
+        $h .= '$(this).find(\'i\').attr(\'style\',\'font-size:17px;color:#2e3d55;\');';
+        $h .= '$(this).find(\'span\').attr(\'style\',\'font-size:11px;font-weight:800;color:#2e3d55;\');';
+        $h .= '});';
+        $h .= 'el.setAttribute(\'style\',$el.data(\'style-on\'));';
+        $h .= '$el.find(\'i\').attr(\'style\',\'font-size:17px;\'+$el.data(\'ic-on\'));';
+        $h .= '$el.find(\'span\').attr(\'style\',\'font-size:11px;font-weight:800;\'+$el.data(\'lc-on\'));';
+        $h .= '};}</script>';
+
         // Conteneur
-        $h  = '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
+        $h .= '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
         $h .= ' data-eqLogic_id="' . $this->getId() . '" style="' . $S_CARD . '">';
 
         // En-tête : nom uniquement
