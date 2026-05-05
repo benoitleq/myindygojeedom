@@ -511,29 +511,19 @@ class myindygojeedom extends eqLogic {
             throw new Exception('Aucun programme pour le module ' . $moduleId);
         }
 
-        $target = null;
-        foreach ($programs as $p) {
-            if ($p['id'] == $programId) { $target = $p; break; }
-        }
-        if ($target === null) {
-            throw new Exception('Programme ' . $programId . ' introuvable dans le module ' . $moduleId);
-        }
-
-        $targetType = $target['programCharacteristics']['programType'] ?? null;
-
+        $found = false;
         $updated = [];
         foreach ($programs as $prog) {
-            $copy              = $prog;
-            $copy['dataChanged'] = true;
-            $progType          = $copy['programCharacteristics']['programType'] ?? null;
+            $copy = $prog;
             if ($prog['id'] == $programId) {
+                $copy['dataChanged'] = true;
                 $copy['programCharacteristics']['mode'] = $mode;
-            } elseif ($progType !== $targetType) {
-                if (array_key_exists('mode', $copy['programCharacteristics'] ?? [])) {
-                    $copy['programCharacteristics']['mode'] = null;
-                }
+                $found = true;
             }
             $updated[] = $copy;
+        }
+        if (!$found) {
+            throw new Exception('Programme ' . $programId . ' introuvable dans le module ' . $moduleId);
         }
 
         $poolAddress   = $this->getConfiguration('pool_address', '');
