@@ -19,6 +19,9 @@ Plugin Jeedom pour piloter votre piscine connectée **Indygo Pool Command** via 
 - 📡 **API officielle OAuth2** — pas de scraping, robuste aux mises à jour
 - 🔒 Identifiants stockés **localement** dans Jeedom
 
+- <img width="242" height="206" alt="image" src="https://github.com/user-attachments/assets/84c8cc6d-1912-4e13-8f45-aa12ec67598f" />
+
+
 ## Installation
 
 **Plugins > Gestion des plugins > +** (icône en haut à droite) **> GitHub**
