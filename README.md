@@ -89,6 +89,23 @@ myindygojeedom/
 - API reverse-engineerée par [FunFR](https://github.com/FunFR) via [ha-indygo-pool](https://github.com/FunFR/ha-indygo-pool) (Apache 2.0)
 - Inspiré du travail de B_Leq sur le forum HACF
 
+## Sécurité — Credentials OAuth2
+
+Le fichier `core/class/myindygojeedom.class.php` contient deux constantes visibles dans le code source :
+
+```php
+const OAUTH2_CLIENT_ID     = '...';
+const OAUTH2_CLIENT_SECRET = '...';
+```
+
+**Ce ne sont pas vos identifiants personnels.** Ce sont les credentials de l'*application mobile* MyIndygo, obtenus par reverse-engineering et déjà publiés publiquement dans le projet [ha-indygo-pool](https://github.com/FunFR/ha-indygo-pool). Ils identifient le "client OAuth2" (l'appli), pas votre compte.
+
+**Risque réel** : faible. Un attaquant qui récupère ces valeurs ne peut rien en faire sans votre email et mot de passe MyIndygo. Vos identifiants personnels sont stockés dans la base Jeedom, chiffrés, et ne transitent jamais en clair.
+
+**Pourquoi ne pas les masquer ?** Ces constantes ne peuvent pas être placées dans un fichier non versionné (le plugin serait cassé à l'installation) ni dans la configuration admin Jeedom (l'utilisateur ne peut pas les connaître). Les garder dans le code est le seul choix pragmatique pour un plugin communautaire basé sur une API non officielle.
+
+Si MyIndygo publie un jour une API officielle avec enregistrement d'applications, ce plugin sera mis à jour pour utiliser des credentials propres, révocables, et non publiés.
+
 ## Disclaimer
 
 Ce plugin n'est pas affilié à Indygo / Solem. Utilisez-le à vos propres risques.  
