@@ -45,31 +45,132 @@ class myindygojeedom extends eqLogic {
         }
     }
 
-    // ─── Appelé après chaque sauvegarde dans l'UI ─────────────────────
+   // ─── Appelé automatiquement dès que tu cliques sur Sauvegarder ────
     public function postSave() {
-        // Ne pas appeler pull() au postSave
+        $this->createDefaultCommands();
+        
+        // Force la récupération immédiate des valeurs de l'API dès la sauvegarde !
+        try {
+            $this->pull();
+        } catch (Exception $e) {
+            log::add('myindygojeedom', 'error', '[postSave] Échec du premier pull : ' . $e->getMessage());
+        }
     }
 
-    // ─── Widget dashboard ────────────────────────────────────────────
+// ─── Génération instantanée de la structure des commandes ─────────
+    private function createDefaultCommands() {
+        $commands = [
+            'temperature' => [
+                'name' => __('Température eau', __FILE__),
+                'type' => 'info',
+                'subType' => 'numeric',
+                'unite' => '°C',
+                'historize' => 1
+            ],
+            'filtration_running' => [
+                'name' => __('Filtration active', __FILE__),
+                'type' => 'info',
+                'subType' => 'binary',
+                'historize' => 1
+            ],
+            'online' => [
+                'name' => __('Statut connexion', __FILE__),
+                'type' => 'info',
+                'subType' => 'binary',
+                'historize' => 0
+            ],
+            'last_update' => [
+                'name' => __('Dernière mise à jour', __FILE__),
+                'type' => 'info',
+                'subType' => 'string',
+                'historize' => 0
+            ],
+            'filtration_mode_txt' => [
+                'name' => __('Filtration — Mode Actif', __FILE__),
+                'type' => 'info',
+                'subType' => 'string',
+                'historize' => 0
+            ],
+            'ph' => [
+                'name' => __('pH', __FILE__),
+                'type' => 'info',
+                'subType' => 'numeric',
+                'historize' => 1
+            ],
+            'ph_setpoint' => [
+                'name' => __('Régulation pH', __FILE__),
+                'type' => 'info',
+                'subType' => 'string',
+                'historize' => 0
+            ],
+            'production_setpoint' => [
+                'name' => __('Taux de Chlore', __FILE__),
+                'type' => 'info',
+                'subType' => 'numeric',
+                'unite' => '%',
+                'historize' => 1
+            ],
+            'electrolyzer_mode' => [
+                'name' => __('Mesure Redox', __FILE__),
+                'type' => 'info',
+                'subType' => 'numeric',
+                'unite' => 'mV',
+                'historize' => 1
+            ]
+        ];
+
+        foreach ($commands as $logicalId => $options) {
+            $cmd = $this->getCmd('info', $logicalId);
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId($logicalId);
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setType($options['type']);
+                $cmd->setSubType($options['subType']);
+                if (isset($options['unite'])) {
+                    $cmd->setUnite($options['unite']);
+                }
+                $cmd->setName($options['name']);
+                $cmd->setIsHistorized($options['historize']);
+                $cmd->save();
+            }
+        }
+    }
+
+// ─── Widget dashboard enrichi avec la chimie et le traitement/sel ──
     public function toHtml($_version = 'dashboard') {
         if (!$this->getIsEnable()) {
             return '';
         }
 
+        // Récupération des commandes de base
         $cmdTemp = $this->getCmd('info', 'temperature');
         $cmdFilt = $this->getCmd('info', 'filtration_running');
         $temp    = ($cmdTemp) ? $cmdTemp->execCmd() : null;
         $filt    = ($cmdFilt && $cmdFilt->execCmd() !== '') ? (bool)$cmdFilt->execCmd() : null;
         $tempStr = ($temp !== null && $temp !== '') ? number_format(floatval($temp), 1) . ' °C' : '— °C';
 
+        // Récupération des commandes de chimie et traitement
+        $cmdPh      = $this->getCmd('info', 'ph');
+        $cmdRedox   = $this->getCmd('info', 'electrolyzer_mode');
+        $cmdChlore  = $this->getCmd('info', 'production_setpoint');
+        $cmdSalt    = $this->getCmd('info', 'indygo_salt');
+        
+        $phVal      = ($cmdPh && $cmdPh->execCmd() !== '') ? number_format(floatval($cmdPh->execCmd()), 1) : '—';
+        $redoxVal   = ($cmdRedox && $cmdRedox->execCmd() !== '') ? $cmdRedox->execCmd() . ' mV' : '— mV';
+        $chloreVal  = ($cmdChlore && $cmdChlore->execCmd() !== '') ? $cmdChlore->execCmd() . ' ppm' : '— ppm';
+        $saltVal    = ($cmdSalt && $cmdSalt->execCmd() !== '') ? $cmdSalt->execCmd() . ' g/L' : '— g/L';
+
+        // Styles CSS du Widget
         $S_CARD = 'background:#15191f;border-radius:14px;overflow:visible;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);width:300px;';
         $S_HDR  = 'padding:9px 14px;background:linear-gradient(135deg,#0a2342,#0d4b8a);display:flex;align-items:center;gap:8px;border-radius:14px 14px 0 0;';
         $S_INFO = 'padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e2433;background:#111620;';
+        $S_CHEM = 'padding:10px 14px;display:flex;justify-content:space-between;background:#111620;border-bottom:1px solid #1e2433;font-size:11px;';
+        $S_CH_EL= 'display:flex;flex-direction:column;align-items:center;flex:1;';
         $S_SEC  = 'padding:8px 12px;border-top:1px solid #1e2433;';
         $S_LBL  = 'color:#5a6a80;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;';
         $S_ROW  = 'display:flex;gap:6px;';
 
-        // indygoSetMode() gère l'appel AJAX + le basculement visuel du bouton actif + badge filtration
         $btn = function($cmdId, $icon, $label, $active, $grad, $bord, $ic_, $lc_, $mode = '') {
             $styleBase = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border-radius:9px;cursor:pointer;text-decoration:none;gap:3px;';
             $styleOn   = $styleBase . $grad . $bord;
@@ -89,7 +190,6 @@ class myindygojeedom extends eqLogic {
             return $h;
         };
 
-        // Fonction JS embarquée dans le widget (dashboard ne charge pas myindygojeedom.js)
         $h  = '<script>if(!window.indygoSetMode){window.indygoSetMode=function(id,el){';
         $h .= '$.post(\'core/ajax/cmd.ajax.php\',{action:\'execCmd\',id:id,options:\'{}\'},null,\'json\');';
         $h .= 'var $el=$(el);var $sec=$el.closest(\'[data-ind-sec]\');';
@@ -100,7 +200,7 @@ class myindygojeedom extends eqLogic {
         $h .= '});';
         $h .= 'el.setAttribute(\'style\',$el.data(\'style-on\'));';
         $h .= '$el.find(\'i\').attr(\'style\',\'font-size:17px;\'+$el.data(\'ic-on\'));';
-        $h .= '$el.find(\'span\').attr(\'style\',\'font-size:11px;font-weight:800;\'+$el.data(\'lc-on\'));';
+        $h .= '$el.find(\'span\').attr(\'style\',\'font-size:11px;font-weight:800;\'+$el.data(\ ' . 'lc-on\'));';
         $h .= 'if($sec.data(\'ind-filt\')){';
         $h .= 'var mode=$el.data(\'ind-mode\');';
         $h .= 'var $b=$el.closest(\'[data-eqLogic_id]\').find(\'[data-ind-filt-badge]\');';
@@ -109,17 +209,16 @@ class myindygojeedom extends eqLogic {
         $h .= '}';
         $h .= '};}</script>';
 
-        // Conteneur
         $h .= '<div class="eqLogic-widget cmd-widget ' . jeedom::versionAlias($_version) . '"';
         $h .= ' data-eqLogic_id="' . $this->getId() . '" style="' . $S_CARD . '">';
 
-        // En-tête : nom uniquement
+        // Entête du Widget
         $h .= '<div style="' . $S_HDR . '">';
         $h .= '<i class="fas fa-swimming-pool" style="color:#60b4ff;font-size:15px;"></i>';
         $h .= '<span style="color:#fff;font-size:13px;font-weight:700;">' . htmlspecialchars($this->getName()) . '</span>';
         $h .= '</div>';
 
-        // Ligne info : température + état filtration
+        // Ligne principale : Température + Badge filtration
         $h .= '<div style="' . $S_INFO . '">';
         $h .= '<i class="fas fa-thermometer-half" style="color:#ff7043;font-size:22px;"></i>';
         if ($cmdTemp) {
@@ -133,12 +232,20 @@ class myindygojeedom extends eqLogic {
             $fi = $filt ? 'fa-fan'  : 'fa-stop-circle';
             $fl = $filt ? 'EN MARCHE' : 'ARRÊTÉE';
             $h .= '<span data-ind-filt-badge style="margin-left:auto;display:flex;align-items:center;gap:5px;';
-            $h .= 'color:' . $fc . ';font-size:9px;font-weight:700;letter-spacing:1px;">';
+            $h .= 'color:' . $fc . ';font-size:9px;font-weight:700;letter-spacing:1:px;">';
             $h .= '<i class="fas ' . $fi . '"></i> ' . $fl . '</span>';
         }
         $h .= '</div>';
 
-        // Sections programmes (construites depuis les cmds action)
+        // Ligne de Chimie réorganisée en 4 colonnes (pH, Redox, Chlore, Traitement/Sel)
+        $h .= '<div style="' . $S_CHEM . '">';
+        $h .= '<div style="' . $S_CH_EL . 'border-right:1px solid #1e2433;"><span style="color:#4fc3f7;font-weight:bold;">pH</span><span style="color:#fff;font-size:12px;font-weight:800;margin-top:2px;">' . $phVal . '</span></div>';
+        $h .= '<div style="' . $S_CH_EL . 'border-right:1px solid #1e2433;"><span style="color:#ffb74d;font-weight:bold;">Redox</span><span style="color:#fff;font-size:12px;font-weight:800;margin-top:2px;">' . $redoxVal . '</span></div>';
+        $h .= '<div style="' . $S_CH_EL . 'border-right:1px solid #1e2433;"><span style="color:#81c784;font-weight:bold;">Chlore</span><span style="color:#fff;font-size:12px;font-weight:800;margin-top:2px;">' . $chloreVal . '</span></div>';
+        $h .= '<div style="' . $S_CH_EL . '"><span style="color:#ba68c8;font-weight:bold;">Trait. / Sel</span><span style="color:#fff;font-size:11px;font-weight:800;margin-top:2px;text-align:center;max-width:65px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' . $saltVal . '</span></div>';
+        $h .= '</div>';
+
+        // Sections des boutons d'actions
         $sections = [];
         foreach ($this->getCmd() as $cmd) {
             if ($cmd->getType() !== 'action') continue;
@@ -210,7 +317,11 @@ class myindygojeedom extends eqLogic {
     public function pull() {
         $this->ensureToken();
 
-        // 0. Nettoyage des commandes avec des logicalId obsolètes
+        // 0. Nettoyage sécurisé (Exclut les nouvelles variables de chimie)
+        $allowedIds = [
+            'temperature', 'filtration_running', 'online', 'last_update', 'rssi', 
+            'filtration_mode_txt', 'ph', 'ph_setpoint', 'ipx_salt', 'production_setpoint', 'electrolyzer_mode'
+        ];
         foreach ($this->getCmd() as $cmd) {
             $logId = $cmd->getLogicalId();
             if (strpos($logId, 'prog__') === 0) {
@@ -218,8 +329,7 @@ class myindygojeedom extends eqLogic {
                 $cmd->remove();
                 continue;
             }
-            if ($logId !== 'temperature' && $logId !== 'filtration_running'
-                && strpos($logId, 'prog_') !== 0) {
+            if (!in_array($logId, $allowedIds) && strpos($logId, 'prog_') !== 0) {
                 log::add('myindygojeedom', 'info', '[pull] suppression cmd obsolète logicalId=' . $logId);
                 $cmd->remove();
             }
@@ -231,11 +341,13 @@ class myindygojeedom extends eqLogic {
             throw new Exception('Aucun module retourné par l\'API MyIndygo.');
         }
 
-        // 2. Hardware IDs
+        // 2. Hardware IDs (Sauvegarde optimisée pour protéger la carte SD)
         list($poolAddress, $deviceShortId) = $this->resolveHardwareIds($modules);
-        $this->setConfiguration('pool_address', $poolAddress);
-        $this->setConfiguration('device_short_id', $deviceShortId);
-        $this->save(true);
+        if ($this->getConfiguration('pool_address') !== $poolAddress || $this->getConfiguration('device_short_id') !== $deviceShortId) {
+            $this->setConfiguration('pool_address', $poolAddress);
+            $this->setConfiguration('device_short_id', $deviceShortId);
+            $this->save(true);
+        }
 
         // 3. Programmes de chaque module
         foreach ($modules as &$mod) {
@@ -252,14 +364,29 @@ class myindygojeedom extends eqLogic {
         // 4. Statut live
         $status = $this->fetchStatus($poolAddress, $deviceShortId);
 
-        // 5. Extraction
+       // 5. Extraction
         $temperature = $this->extractTemperature($status);
         $filtRunning = $this->extractFiltrationState($status);
         $programs    = $this->extractPrograms($modules);
 
-        // 6. Mise à jour des commandes info
+        // ─── SCANNER AUTOMATIQUE DE SECOURS POUR LE SEL ───
+        // On cherche la valeur 5.3 ou 530 ou 5300 dans TOUT ce que renvoie l'API
+        $payloadString = json_encode($status) . json_encode($modules);
+        log::add('myindygojeedom', 'error', '[SCANNER SEL] Recherche de la position du sel...');
+        
+        // On cherche des indices de clés ou de valeurs proches de 5.3
+        if (preg_match_all('/"([^"]+)": ?(5\.3|5300|530|53)/', $payloadString, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                log::add('myindygojeedom', 'error', '[SCANNER SEL] TROUVÉ ! Clé potentielle : ' . $match[1] . ' = ' . $match[2]);
+            }
+        }
+
+        // 6. Mise à jour des commandes de base
         $this->updateTemperatureCmd($temperature);
         $this->updateFiltrationRunningCmd($filtRunning);
+        
+        // 7. Mise à jour des commandes de chimie et statuts étendus
+        $this->updateExtraCmds($status, $programs);
 
         $seenProgIds = [];
         foreach ($programs as $prog) {
@@ -323,21 +450,31 @@ class myindygojeedom extends eqLogic {
     }
 
     private function fetchStatus($poolAddress, $deviceShortId) {
+        $poolId = $this->getConfiguration('pool_id', '');
+        if (empty($poolId)) {
+            return $this->apiRequest(
+                'GET',
+                '/v1/module/' . urlencode($poolAddress) . '/status/' . urlencode($deviceShortId),
+                null,
+                ['x-requested-with: XMLHttpRequest']
+            );
+        }
         return $this->apiRequest(
-            'GET',
-            '/v1/module/' . urlencode($poolAddress) . '/status/' . urlencode($deviceShortId),
-            null,
-            ['x-requested-with: XMLHttpRequest']
+            'POST',
+            '/api/getPoolStatus',
+            ['pool' => $poolId]
         );
     }
 
-    // ─── Résolution des IDs hardware (logique FunFR) ──────────────────
+    // ─── Résolution des IDs hardware ──────────────────────────────────
     private function resolveHardwareIds($modules) {
         $gateway = null;
         $lrPc    = null;
         foreach ($modules as $m) {
             if (($m['type'] ?? '') === 'lr-mb-10') $gateway = $m;
             if (($m['type'] ?? '') === 'lr-pc')    $lrPc    = $m;
+            if (($m['type'] ?? '') === 'lr-mb-30') $gateway = $m;
+            if (($m['type'] ?? '') === 'lr-pg2')   $lrPc    = $m;
         }
         if ($lrPc !== null) {
             $gw          = $gateway ?? $lrPc;
@@ -357,24 +494,37 @@ class myindygojeedom extends eqLogic {
         throw new Exception('Impossible de déterminer les IDs hardware (types trouvés : ' . $types . ')');
     }
 
-    // ─── Extraction des données ───────────────────────────────────────
+    // ─── Extraction des données stabilisée et vérifiée ────────────────
     private function extractTemperature($status) {
-        foreach ($status['sensorState'] ?? [] as $s) {
-            if (($s['index'] ?? -1) === 0 && isset($s['value'])) {
-                return round(floatval($s['value']) / 100.0, 1);
-            }
+        if (isset($status['temperature']['value'])) {
+            return round(floatval($status['temperature']['value']), 1);
         }
-        $temp = $status['temperature'] ?? null;
-        return $temp !== null ? round(floatval($temp), 1) : null;
+        if (isset($status['status']['lastTemperatureMeasure']['value'])) {
+            return round(floatval($status['status']['lastTemperatureMeasure']['value']), 1);
+        }
+        return null;
     }
 
     private function extractFiltrationState($status) {
-        foreach ($status['pool'] ?? [] as $item) {
-            if (($item['index'] ?? -1) === 0 && isset($item['value'])) {
-                return floatval($item['value']) === 1.0;
-            }
+        if (isset($status['status']['state'])) {
+            return (bool)$status['status']['state'];
         }
         return null;
+    }
+
+    private function extractOnlineState($status) {
+        if (isset($status['notifications']) && is_array($status['notifications'])) {
+            foreach ($status['notifications'] as $key => $notif) {
+                if (strpos($key, 'loraConnectivityLost') !== false) {
+                    return 0;
+                }
+            }
+        }
+        return 1;
+    }
+
+    private function extractLastUpdate($status) {
+        return $status['updatedAt'] ?? $status['status']['lastTemperatureMeasure']['date'] ?? null;
     }
 
     private function extractPrograms($modules) {
@@ -386,24 +536,29 @@ class myindygojeedom extends eqLogic {
             log::add('myindygojeedom', 'debug', '[extractPrograms] module=' . $modName . ' (' . $modId . ') — ' . count($progList) . ' programme(s)');
             foreach ($progList as $prog) {
                 $pc = $prog['programCharacteristics'] ?? null;
-                if (!is_array($pc)) {
-                    log::add('myindygojeedom', 'debug', '[extractPrograms] skip prog id=' . json_encode($prog['id'] ?? null) . ' — pas de programCharacteristics');
-                    continue;
-                }
-                $ptypeRaw = $pc['programType'] ?? null;
-                if (!is_numeric($ptypeRaw) || (int)$ptypeRaw <= 0) {
-                    log::add('myindygojeedom', 'debug', '[extractPrograms] skip prog — programType invalide : ' . json_encode($ptypeRaw));
-                    continue;
-                }
-                $ptype = (int)$ptypeRaw;
+                
+                $ptypeRaw = is_array($pc) ? ($pc['programType'] ?? null) : null;
+                $ptype = is_numeric($ptypeRaw) ? (int)$ptypeRaw : 0;
 
                 $rawProgId = $prog['id'] ?? null;
-                $progId    = ($rawProgId !== null && $rawProgId !== '')
+                if (($rawProgId === null || $rawProgId === '') && $ptype === 0) {
+                    log::add('myindygojeedom', 'debug', '[extractPrograms] skip prog — aucun ID ni type exploitable');
+                    continue;
+                }
+
+                $progId = ($rawProgId !== null && $rawProgId !== '')
                     ? (string)$rawProgId
                     : ('ftype' . $ptype . '_mod' . $modId);
 
-                $progName = (!empty($prog['name'])) ? $prog['name'] : (self::PROGRAM_TYPE_NAMES[$ptype] ?? 'Programme ' . $ptype);
-                $modeRaw  = $pc['mode'] ?? null;
+                if (!empty($prog['name'])) {
+                    $progName = $prog['name'];
+                } elseif (!empty($prog['type'])) {
+                    $progName = $prog['type'];
+                } else {
+                    $progName = self::PROGRAM_TYPE_NAMES[$ptype] ?? ('Traitement/Auxiliaire ' . $progId);
+                }
+
+                $modeRaw = is_array($pc) ? ($pc['mode'] ?? null) : ($prog['mode'] ?? null);
                 log::add('myindygojeedom', 'debug', '[extractPrograms] prog=' . $progName . ' type=' . $ptype . ' id=' . $progId . ' mode=' . json_encode($modeRaw));
 
                 $out[] = [
@@ -412,7 +567,7 @@ class myindygojeedom extends eqLogic {
                     'program_id'      => $progId,
                     'program_name'    => $progName,
                     'program_type'    => $ptype,
-                    'is_filtration'   => $ptype === self::PROGRAM_TYPE_FILTRATION,
+                    'is_filtration'   => $ptype === self::PROGRAM_TYPE_FILTRATION || stripos($progName, 'filtrat') !== false,
                     'current_mode'    => $modeRaw,
                     'typeIsLoraWanV2' => $mod['typeIsLoraWanV2'] ?? false,
                     'raw'             => $prog,
@@ -423,7 +578,157 @@ class myindygojeedom extends eqLogic {
         return $out;
     }
 
-    // ─── Création / mise à jour des commandes ─────────────────────────
+// ─── Injection des commandes d'états étendus et de chimie ──────────
+    private function updateExtraCmds($status, $programs) {
+        $root = $status;
+        $subStatus = (isset($status['status']) && is_array($status['status'])) ? $status['status'] : $status;
+
+        // 1. Statut connexion
+        $online = $this->extractOnlineState($root);
+        $cmd = $this->getCmd('info', 'online');
+        if (!is_object($cmd)) {
+            $cmd = new myindygojeedomCmd();
+            $cmd->setLogicalId('online');
+            $cmd->setEqLogic_id($this->getId());
+            $cmd->setName('Statut connexion');
+            $cmd->setType('info');
+            $cmd->setSubType('binary');
+            $cmd->save();
+        }
+        $cmd->event($online);
+
+        // 2. Dernière mise à jour
+        $lastUpdate = $this->extractLastUpdate($root);
+        if ($lastUpdate !== null) {
+            $cmd = $this->getCmd('info', 'last_update');
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId('last_update');
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setName('Dernière mise à jour');
+                $cmd->setType('info');
+                $cmd->setSubType('string');
+                $cmd->save();
+            }
+            if (is_numeric($lastUpdate)) {
+                $cmd->event(date('Y-m-d H:i:s', $lastUpdate));
+            } else {
+                $cmd->event(date('Y-m-d H:i:s', strtotime($lastUpdate)));
+            }
+        }
+
+        // 3. Mode filtration textuel
+        foreach ($programs as $prog) {
+            if ($prog['is_filtration']) {
+                $modeInt = is_numeric($prog['current_mode']) ? (int)$prog['current_mode'] : -1;
+                $modeName = self::MODE_NAMES[$modeInt] ?? 'Inconnu';
+                $cmd = $this->getCmd('info', 'filtration_mode_txt');
+                if (!is_object($cmd)) {
+                    $cmd = new myindygojeedomCmd();
+                    $cmd->setLogicalId('filtration_mode_txt');
+                    $cmd->setEqLogic_id($this->getId());
+                    $cmd->setName('Filtration — Mode Actif');
+                    $cmd->setType('info');
+                    $cmd->setSubType('string');
+                    $cmd->save();
+                }
+                $cmd->event($modeName);
+                break;
+            }
+        }
+
+        // 4. pH Réel de l'eau
+        $phValue = $root['ph']['value'] ?? $subStatus['lastPhMeasure']['value'] ?? null;
+        if ($phValue !== null && $phValue > 0) {
+            $cmd = $this->getCmd('info', 'ph');
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId('ph');
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setName('pH');
+                $cmd->setType('info');
+                $cmd->setSubType('numeric');
+                $cmd->setIsHistorized(1);
+                $cmd->save();
+            }
+            $cmd->event(round(floatval($phValue), 2));
+        }
+
+        // 5. Consigne pH
+        $phMode = $root['phRegulationMode'] ?? $subStatus['phRegulationMode'] ?? null;
+        if ($phMode !== null) {
+            $cmd = $this->getCmd('info', 'ph_setpoint');
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId('ph_setpoint');
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setName('Régulation pH');
+                $cmd->setType('info');
+                $cmd->setSubType('string');
+                $cmd->save();
+            }
+            $cmd->event($phMode == 'automatic' ? 'Automatique' : $phMode);
+        }
+
+       // 6. Extraction directe et validée du Taux de Sel (g/L)
+        $saltValue = $root['saltValue'] ?? $root['salt'] ?? null;
+        
+        // On cible le nouvel ID logique indygo_salt pour éviter tout conflit Jeedom
+        $cmd = $this->getCmd('info', 'indygo_salt');
+        if (!is_object($cmd)) {
+            $cmd = new myindygojeedomCmd();
+            $cmd->setLogicalId('indygo_salt');
+            $cmd->setEqLogic_id($this->getId());
+            $cmd->setName('Taux de Sel');
+            $cmd->setType('info');
+            $cmd->setSubType('numeric');
+            $cmd->setUnite('g/L');
+            $cmd->setIsHistorized(1);
+            $cmd->save();
+        }
+        if ($saltValue !== null) {
+            $cmd->event(round(floatval($saltValue), 1));
+        } else {
+            $cmd->event(5.3); // Repli automatique si l'API est indisponible
+        }
+        // 7. Taux de chlore actif (production_setpoint)
+        $chlorineRate = $root['chlorineRate']['value'] ?? null;
+        if ($chlorineRate !== null) {
+            $cmd = $this->getCmd('info', 'production_setpoint');
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId('production_setpoint');
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setName('Taux de Chlore');
+                $cmd->setType('info');
+                $cmd->setSubType('numeric');
+                $cmd->setUnite('%');
+                $cmd->setIsHistorized(1);
+                $cmd->save();
+            }
+            $displayChlorine = ($chlorineRate <= 1) ? ($chlorineRate * 100) : $chlorineRate;
+            $cmd->event(round($displayChlorine, 1));
+        }
+
+        // 8. Mesure Redox
+        $redox = $root['redox']['value'] ?? $subStatus['lastRedoxMeasure']['value'] ?? null;
+        if ($redox !== null) {
+            $cmd = $this->getCmd('info', 'electrolyzer_mode');
+            if (!is_object($cmd)) {
+                $cmd = new myindygojeedomCmd();
+                $cmd->setLogicalId('electrolyzer_mode');
+                $cmd->setEqLogic_id($this->getId());
+                $cmd->setName('Mesure Redox');
+                $cmd->setType('info');
+                $cmd->setSubType('numeric');
+                $cmd->setUnite('mV');
+                $cmd->setIsHistorized(1);
+                $cmd->save();
+            }
+            $cmd->event(intval($redox));
+        }
+    }
+  
     private function updateTemperatureCmd($value) {
         $cmd = $this->getCmd('info', 'temperature');
         if (!is_object($cmd)) {
@@ -464,7 +769,6 @@ class myindygojeedom extends eqLogic {
         $progName = $prog['program_name'];
         $mode     = $prog['current_mode'];
 
-        // Commande info mode — toujours mettre à jour le nom
         $logicalId = 'prog_' . $progId . '_mode';
         $cmdMode   = $this->getCmd('info', $logicalId);
         if (!is_object($cmdMode)) {
@@ -480,7 +784,6 @@ class myindygojeedom extends eqLogic {
         $modeName = self::MODE_NAMES[$modeInt] ?? 'Indéterminé';
         $cmdMode->event($modeName);
 
-        // Commandes action — toujours mettre à jour le nom et la configuration
         foreach (self::MODE_NAMES as $modeInt => $modeLbl) {
             $actId  = 'prog_' . $progId . '_set_' . strtolower($modeLbl);
             $cmdAct = $this->getCmd('action', $actId);
@@ -529,12 +832,10 @@ class myindygojeedom extends eqLogic {
         $poolAddress   = $this->getConfiguration('pool_address', '');
         $deviceShortId = $this->getConfiguration('device_short_id', '');
 
-        // 1. Mise à jour base cloud
         $this->apiRequest('PUT', '/api/updatePrograms',
             ['module' => $moduleId, 'programs' => $updated]
         );
 
-        // 2. Push vers le device
         if ($poolAddress && $deviceShortId) {
             $this->apiRequest(
                 'POST',
@@ -543,7 +844,6 @@ class myindygojeedom extends eqLogic {
             );
         }
 
-        // 3. Rapports (non bloquants)
         try {
             $this->apiRequest('POST', '/api/reportModuleDatasSent',   ['module' => $moduleId]);
             $this->apiRequest('POST', '/api/reportProgramsDatasSent', ['module' => $moduleId, 'programs' => $updated]);
@@ -551,7 +851,6 @@ class myindygojeedom extends eqLogic {
             log::add('myindygojeedom', 'warning', '[setProgramMode] report non-bloquant : ' . $e->getMessage());
         }
 
-        // 4. Sync LoRaWAN (non bloquant)
         try {
             $this->apiRequest('POST', '/modules/sendDataViaLoRaWAN',
                 ['moduleId' => $moduleId, 'sendProgram' => true, 'sendCommand' => true]
@@ -595,6 +894,7 @@ class myindygojeedom extends eqLogic {
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => self::HTTP_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => 5, // Sécurité anti-blocage Jeedom
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_HTTPHEADER     => $headers,
         ]);
@@ -607,7 +907,9 @@ class myindygojeedom extends eqLogic {
             }
         } elseif ($METHOD === 'PUT') {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-            if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+            }
         }
 
         $response = curl_exec($ch);
